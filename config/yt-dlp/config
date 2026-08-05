@@ -1,0 +1,25 @@
+# ~/.config/yt-dlp/config
+
+--retries 10
+--retry-sleep exp=1:120
+--fragment-retries 10
+--socket-timeout 30
+-N 4
+-c
+--embed-metadata
+--embed-thumbnail
+--embed-chapters
+--embed-subs
+--write-auto-subs
+--sub-langs en.*
+--write-thumbnail
+--sponsorblock-mark all
+--output-na-placeholder ""
+--sleep-interval 2
+--max-sleep-interval 5
+-o "%(title)s [%(id)s].%(ext)s"
+-S "res:1080,vcodec:h264,lang,quality,fps,hdr:12,acodec:aac"
+--merge-output-format mp4
+--remux-video mp4
+--js-runtimes node
+--cookies-from-browser brave

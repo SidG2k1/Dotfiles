@@ -1,0 +1,23 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+private/
+
+# Authentication and machine-local state
+**/auth.json
+**/hosts.yml
+**/settings.local.json
+**/*credential*
+**/*token*
+**/*.sqlite*
+
+# Histories and editor recovery data can contain private content
+**/*history*
+**/sessions/
+**/logs/
+**/swap/
+**/undo/
+**/view/
+**/viminfo
+*.zip

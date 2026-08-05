@@ -1,0 +1,25 @@
+{
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "security.workspace.trust.untrustedFiles": "open",
+    "workbench.colorTheme": "Solarized Dark",
+    "claudeCode.selectedModel": "claude-opus-4-5-20251101",
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": true,
+        "scminput": false
+    },
+    "claudeCode.preferredLocation": "panel",
+    "chat.tools.urls.autoApprove": {
+        "https://code.visualstudio.com": true,
+        "https://github.com/microsoft/vscode/wiki/*": true,
+        "https://duckduckgo.com": {
+            "approveRequest": true,
+            "approveResponse": false
+        },
+        "https://html.duckduckgo.com": {
+            "approveRequest": false,
+            "approveResponse": true
+        }
+    }
+}

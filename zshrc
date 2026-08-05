@@ -1,95 +1,91 @@
-# Fig pre block. Keep at the top of this file.
-[[ -f "$HOME/.fig/shell/zshrc.pre.zsh" ]] && builtin source "$HOME/.fig/shell/zshrc.pre.zsh"
-autoload bashcompinit && bashcompinit
-
-# ~/.bashrc: executed by bash(1) for non-login shells.
-# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
+#!/usr/bin/env zsh
+# ~/.zshrc - personal laptop
 
 set -o vi
 
-# If not running interactively, don't do anything
-case $- in
-    *i*) ;;
-      *) return;;
-esac
+# ============================================================================
+# COMPLETION SYSTEM
+# ============================================================================
+setopt HIST_IGNORE_SPACE
+autoload -Uz compinit
+# Rebuild dump once per day; use cached dump otherwise
+if [[ -n ~/.zcompdump-*(#qN.mh+24) ]] || [[ ! -f ~/.zcompdump-* ]]; then
+  compinit
+else
+  compinit -C
+fi
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# don't put duplicate lines or lines starting with space in the history.
-# See bash(1) for more options
-HISTCONTROL=ignoreboth
+# Colored man pages
+export LESS_TERMCAP_mb=$'\e[1;31m'
+export LESS_TERMCAP_md=$'\e[1;36m'
+export LESS_TERMCAP_me=$'\e[0m'
+export LESS_TERMCAP_so=$'\e[01;33m'
+export LESS_TERMCAP_se=$'\e[0m'
+export LESS_TERMCAP_us=$'\e[1;32m'
+export LESS_TERMCAP_ue=$'\e[0m'
 
-# for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
-HISTSIZE=1000
-HISTFILESIZE=2000
+# ============================================================================
+# PATH
+# ============================================================================
+export PATH="$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
-# make less more friendly for non-text input files, see lesspipe(1)
-[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+# uv / pipx env
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
-# set variable identifying the chroot you work in (used in the prompt below)
-if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
-    debian_chroot=$(cat /etc/debian_chroot)
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+# ============================================================================
+# LAZY-LOADED TOOLS
+# ============================================================================
+
+# NVM - lazy load (saves ~300ms on startup)
+export NVM_DIR="$HOME/.nvm"
+nvm() {
+  unset -f nvm node npm npx
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+  nvm "$@"
+}
+node() { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; node "$@"; }
+npm()  { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; npm "$@"; }
+npx()  { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; npx "$@"; }
+
+# Google Cloud SDK - lazy load
+gcloud() {
+  unset -f gcloud
+  [ -f '/opt/homebrew/share/google-cloud-sdk/path.zsh.inc' ] && . '/opt/homebrew/share/google-cloud-sdk/path.zsh.inc'
+  [ -f '/opt/homebrew/share/google-cloud-sdk/completion.zsh.inc' ] && . '/opt/homebrew/share/google-cloud-sdk/completion.zsh.inc'
+  gcloud "$@"
+}
+
+# ============================================================================
+# FZF
+# ============================================================================
+export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
+export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:500 {}' --preview-window=right:50%:wrap"
+export FZF_ALT_C_OPTS="--preview 'eza --tree --level=2 --color=always {} | head -200'"
+
+# ============================================================================
+# ZOXIDE (smart cd)
+# ============================================================================
+_zoxide_cache="${HOME}/.zsh/.zoxide_init.zsh"
+if command -v zoxide >/dev/null; then
+  if [[ ! -f "$_zoxide_cache" ]] || [[ "$(command -v zoxide)" -nt "$_zoxide_cache" ]]; then
+    mkdir -p "${HOME}/.zsh"
+    zoxide init zsh > "$_zoxide_cache"
+  fi
+  source "$_zoxide_cache"
 fi
 
-# set a fancy prompt (non-color, unless we know we "want" color)
-case "$TERM" in
-    xterm-color|*-256color) color_prompt=yes;;
-esac
-
-# uncomment for a colored prompt, if the terminal has the capability; turned
-# off by default to not distract the user: the focus in a terminal window
-# should be on the output of commands, not on the prompt
-#force_color_prompt=yes
-
-if [ -n "$force_color_prompt" ]; then
-    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
-	# We have color support; assume it's compliant with Ecma-48
-	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
-	# a case would tend to support setf rather than setaf.)
-	color_prompt=yes
-    else
-	color_prompt=
-    fi
-fi
-
-# enable color support of ls and also add handy aliases
-if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    #alias dir='dir --color=auto'
-    #alias vdir='vdir --color=auto'
-
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
-fi
-
-# colored GCC warnings and errors
-#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
-# some more ls aliases
-alias ll='ls -alF'
-alias la='ls -A'
-alias l='ls -CF'
-
-# Add an "alert" alias for long running commands.  Use like so:
-#   sleep 10; alert
-alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-
-# Alias definitions.
-# You may want to put all your additions into a separate file like
-# ~/.bash_aliases, instead of adding them here directly.
-# See /usr/share/doc/bash-doc/examples in the bash-doc package.
-
-if [ -f ~/.bash_aliases ]; then
-    . ~/.bash_aliases
-fi
-
-
-# Here on out, everything is modified by Siddharth Gupta
-
-export PATH=$HOME/sys161/bin:$HOME/sys161/tools/bin:$PATH
-
-alias upgrade="sudo apt update; sudo apt upgrade; sudo apt autoclean; sudo apt autoremove; sudo snap refresh"
+# ============================================================================
+# ALIASES
+# ============================================================================
 alias o='open'
 alias clr='clear'
 alias v='vim'
@@ -98,14 +94,131 @@ alias python='python3'
 alias r='ranger'
 alias m='math'
 alias shred=' shred -uvz'
-alias autopush='git add .; git commit -S; git push'
-alias servify='ifconfig -a | grep inet && python2 -m SimpleHTTPServer'
+
+# Modern CLI replacements
+# Wrap eza: v0.23+ reads stdin for paths when not a TTY (e.g. Claude Code's
+# bash tool, GitHub Actions), producing no output unless a path is given.
+# See https://github.com/eza-community/eza/issues/1568
+eza() {
+  local a
+  for a in "$@"; do [[ "$a" != -* ]] && { command eza "$@"; return; }; done
+  command eza "$@" .
+}
+alias ls='eza --icons'
+alias ll='eza -la --icons --git'
+alias la='eza -a --icons'
+alias lt='eza --tree --level=2 --icons'
+alias cat='bat --paging=never'
+
+# Dev
+alias bash5='/opt/homebrew/bin/bash'
 alias g++14="g++ -std=c++14 -Wall -g"
 alias fsz='du -sh '
 alias ssh='ssh -o VisualHostKey=yes'
 alias symcrypt='gpg -c --no-symkey-cache'
-alias yt-dlp='yt-dlp -N 4 --sponsorblock-mark all'
+yt-dlp() {
+  print -r -- 'Manual update: uv tool upgrade yt-dlp'
+  command yt-dlp "$@"
+}
 alias onedrive='rclone --vfs-cache-mode writes mount onedrive: ~/OneDrive &'
 
-# Fig post block. Keep at the bottom of this file.
-[[ -f "$HOME/.fig/shell/zshrc.post.zsh" ]] && builtin source "$HOME/.fig/shell/zshrc.post.zsh"
+# ============================================================================
+# FUNCTIONS
+# ============================================================================
+
+# Git branch switcher with fzf — reflog-ordered, falls back to local branches
+git-switch() {
+  local branches
+  branches=$(git reflog show --pretty='%gs' --grep-reflog='checkout: ' \
+    | awk '{print $NF}' \
+    | awk '!seen[$0]++')
+  branches="$branches"$'\n'"$(git branch --format='%(refname:short)')"
+  branches=$(echo "$branches" | awk '!seen[$0]++')
+
+  local branch
+  branch=$(echo "$branches" | fzf \
+    --height=80% --reverse \
+    --prompt="Switch branch: " \
+    --preview 'git log --oneline --decorate --color=always {} | head -30' \
+    --preview-window=down:10:wrap)
+
+  [[ -n "$branch" ]] || return 1
+  git checkout "$branch"
+}
+
+# ============================================================================
+# PROMPT
+# ============================================================================
+command -v starship >/dev/null && eval "$(starship init zsh)"
+
+# ============================================================================
+# ZSH PLUGINS (brew-installed)
+# ============================================================================
+if [ -f /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+  source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+
+# Syntax highlighting (must be at the end)
+if [ -f /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+  source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+fi
+
+# ============================================================================
+# KEY BINDINGS
+# ============================================================================
+bindkey -v
+export KEYTIMEOUT=1
+# Ctrl-R / Ctrl-T / Alt-C handled by fzf shell integration below
+
+# ============================================================================
+# VI-MODE CURSOR SHAPE
+# ============================================================================
+function zle-keymap-select {
+  if [[ ${KEYMAP} == vicmd ]] || [[ $1 = 'block' ]]; then
+    echo -ne '\e[1 q'   # NORMAL — block
+  elif [[ ${KEYMAP} == main ]] || [[ ${KEYMAP} == viins ]] || [[ ${KEYMAP} = '' ]] || [[ $1 = 'beam' ]]; then
+    echo -ne '\e[5 q'   # INSERT — beam
+  fi
+}
+zle -N zle-keymap-select
+
+function zle-line-init { echo -ne '\e[5 q'; }
+zle -N zle-line-init
+
+preexec() { echo -ne '\e[5 q'; }
+
+# ============================================================================
+# SHELL INTEGRATIONS
+# ============================================================================
+command -v direnv >/dev/null && eval "$(direnv hook zsh)"
+command -v fzf >/dev/null && source <(fzf --zsh)
+
+# ============================================================================
+# HISTORY
+# ============================================================================
+export HISTSIZE=1000000
+export SAVEHIST=1000000
+export HISTFILE="$HOME/.zsh_history"
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_REDUCE_BLANKS
+setopt HIST_FIND_NO_DUPS
+setopt HIST_SAVE_NO_DUPS
+setopt EXTENDED_HISTORY
+setopt APPEND_HISTORY
+setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY
+
+# Navigation / globbing QoL
+setopt AUTO_PUSHD
+setopt PUSHD_IGNORE_DUPS
+setopt EXTENDED_GLOB
+
+# ============================================================================
+# ENV
+# ============================================================================
+export EDITOR=vim
+export VISUAL="$EDITOR"
+export CLICOLOR=1
+export HOMEBREW_NO_ANALYTICS=1
