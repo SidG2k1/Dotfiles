@@ -1,6 +1,6 @@
 ---
 title: (++)
-author: Siddharth Gupta
+author: {{AUTHOR}}
 output: pdf_document
 date: \today
 ---

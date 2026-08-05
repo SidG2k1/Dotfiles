@@ -1,8 +1,19 @@
 {
   "builder": {
     "gc": {
-      "defaultKeepStorage": "20GB",
-      "enabled": true
+      "enabled": true,
+      "policy": [
+        {
+          "keepStorage": "10GB",
+          "filter": [
+            "unused-for=168h"
+          ]
+        },
+        {
+          "keepStorage": "20GB",
+          "all": true
+        }
+      ]
     }
   },
   "experimental": false

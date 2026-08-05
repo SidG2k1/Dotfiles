@@ -1,181 +1,184 @@
 # Laptop setup
 
-## Base tools
+Run in order. Steps 1–2 are scripted; everything after exists because a script
+cannot do it — it needs a password, a GUI toggle, or a decision.
+
+## 1. Prerequisites
 
 ```sh
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-brew install bat direnv eza fzf git-delta gnupg jq neovim ranger starship uv yt-dlp zoxide zsh-autosuggestions zsh-syntax-highlighting
-brew install --cask 1password ghostty visual-studio-code font-jetbrains-mono-nerd-font
+git clone https://github.com/SidG2k1/Dotfiles.git ~/dotfiles
+brew bundle --file=~/dotfiles/Brewfile.optional     # per-feature extras; read it first
 ```
 
-The shell also supports optional Bun, NVM, Google Cloud CLI, rclone, and Tectonic
-installs. Its guards allow those tools to be absent.
+The required `Brewfile` is not listed here: `./install.sh` in step 2 runs
+`brew bundle` on it before it touches any config (`--skip-brew` opts out).
+`Brewfile.optional` is the part no script decides for you — it now also carries
+the Ghostty and VS Code casks, since this repo installs configs for both.
 
-Back up an existing destination before linking a tracked file. Use the mapping
-in `README.md`; do not link entire application state directories.
+Homebrew's `shellenv` line goes in `~/.zprofile` or `~/.zshenv` **by hand** — the
+repo does not install `~/.zprofile`, because other tools' installers append to it
+and rewrite it on upgrade (`manifest.tsv` records why).
 
-## Private and machine-local setup
+Full Xcode, not just the Command Line Tools, is needed only for the AltTab build
+in step 5. Skip it otherwise.
 
-Never put these values or files in this repository:
-
-- Environment files, API keys, OAuth tokens, cloud credential databases, and
-  CLI authentication state.
-- SSH or GPG private keys.
-- Claude/Codex authentication, memories, histories, sessions, project trust,
-  browser hashes, and application-generated MCP paths.
-- Vim swap, undo, view, or viminfo files.
-
-Restore secrets from a password manager or encrypted backup, then restrict local
-environment files:
+## 2. Install
 
 ```sh
-chmod 600 "$HOME/.env"
+cd ~/dotfiles
+./install.sh --dry-run   # prints the plan: every target, its strategy, and what it will do
+./install.sh
+bin/dotfiles-doctor      # verifies each target landed and each dependency resolves
 ```
 
-Sign in again rather than copying authentication databases:
+Idempotent, and safe to re-run after every `git pull`. Fix what `dotfiles-doctor`
+reports before moving on — most of the troubleshooting section below is things it
+catches for you.
+
+## 3. Identity, auth, and other human-only steps
+
+None of this is scriptable and none of it belongs in the repo.
 
 ```sh
-gh auth login
-gcloud auth login
-aws sso login --profile PROFILE
+# Git identity — tracked gitconfig has none, by design
+git config --file ~/.gitconfig.local user.email "<your email>"
+git config --file ~/.gitconfig.local user.signingkey "<your ssh public key>"
 ```
 
-Sign in to 1Password and enable its SSH agent. Complete the public Git
-configuration with local identity values:
-
-```sh
-git config --global user.email "EMAIL"
-git config --global user.signingkey "SSH_PUBLIC_KEY"
-```
-
-Configure rclone interactively for the `onedrive` shell alias. Recreate Goose,
-GWS, and organization-specific cloud endpoints locally.
-
-Warp settings sync is enabled on the current machine; use account sync instead
-of copying its generated `settings.toml`.
-
-## Agent configuration
-
-`agents/AGENTS.md` is the source for shared instructions. Install it at:
-
-- `~/.agents/AGENTS.md`
-- `~/.claude/CLAUDE.md`
-- `~/.codex/AGENTS.md`
-
-Install `agents/skills/*` under `~/.agents/skills/`. Recreate the Claude
-compatibility links as relative symlinks:
-
-```sh
-mkdir -p "$HOME/.claude/skills"
-for skill in autopush find-skills gh-stack memdump memload pr_update; do
-  ln -s "../../.agents/skills/$skill" "$HOME/.claude/skills/$skill"
-done
-```
-
-Install `agents/skill-lock.json` as `~/.agents/.skill-lock.json`.
-Copy `agents/claude/settings.json` to `~/.claude/settings.json`. Start
-`~/.codex/config.toml` from `agents/codex/config.toml`, then let Codex add
-its installation-specific marketplace paths and MCP configuration. Do not copy
-`auth.json`, `settings.local.json`, databases, memories, or history.
-Reconfigure local Beeper/OpenUI MCP endpoints and CodexBar provider or browser
-integration after installing those applications; do not migrate their cookie,
-session, or state files.
-
-## Editors
-
-The Vim bundle directories are third-party checkouts and are intentionally not
-vendored. Install their equivalents through a plugin manager.
-
-The Neovim configuration is staged. Before activating it, remove the legacy
-Pathogen, ALE, and Airline setup inherited from `vimrc`; otherwise both plugin
-systems load. Then install it as `~/.config/nvim`.
-
-Install VS Code extensions by identifier instead of copying the generated
-extension manifest:
+- **1Password**: install and sign in, then enable **Settings → Developer → Use
+  the SSH agent**. `commit.gpgsign = true` signs through the signer binary inside
+  the app bundle, so until this is done every commit fails. Add the
+  `IdentityAgent` line to your own `~/.ssh/config` by hand — the repo copy under
+  `config/ssh/` is a reference and is never installed.
+- **CLI auth**: `gh auth login`, plus whichever cloud CLIs you use. Sign in; never
+  copy an auth database, keychain, or token file between machines.
+- **VS Code extensions** — install by identifier rather than copying the
+  generated manifest:
 
 ```sh
 for extension in \
-  anthropic.claude-code \
-  enkia.tokyo-night \
-  formulahendry.code-runner \
-  github.vscode-github-actions \
-  github.vscode-pull-request-github \
-  ms-python.python \
-  ms-python.vscode-pylance \
-  ms-python.vscode-python-envs \
-  ms-toolsai.jupyter \
-  ms-vsliveshare.vsliveshare
-do
-  code --install-extension "$extension"
-done
+  anthropic.claude-code enkia.tokyo-night formulahendry.code-runner \
+  github.vscode-github-actions github.vscode-pull-request-github \
+  ms-python.python ms-python.vscode-pylance ms-python.vscode-python-envs \
+  ms-toolsai.jupyter ms-vsliveshare.vsliveshare
+do code --install-extension "$extension"; done
 ```
 
-## Pinned AltTab source build
+- **Codex** `~/.codex/config.toml` is `never` in the manifest: Codex rewrites it
+  with installation-specific marketplace paths, MCP servers, and project trust.
+  Start from `agents/codex/config.toml` as a reference and copy keys across by
+  hand.
+- **MCP servers and app integrations**: re-add by signing in. Do not migrate
+  cookie, session, or state files.
 
-The local build uses AltTab 10.12.0, before the later Pro subsystem and tree
-restructure. This intentionally gives up later upstream work.
+## 4. What must never enter this repo
+
+It is a public repo. These stay out, permanently:
+
+- API keys, OAuth tokens, `.env` files, cloud credential databases, CLI auth state
+- SSH or GPG private keys
+- Agent auth, memories, histories, sessions, project trust, generated MCP paths
+- Email addresses, hostnames, employer-specific values, absolute `/Users/<name>` paths
+- Vim swap, undo, view, and viminfo files
+
+The machine-local seam files that hold this material instead — and the rule of
+thumb for what belongs in them — are documented in `README.md`. Lock down any
+local env file you restore:
 
 ```sh
-git clone git@github.com:lwouis/alt-tab-macos.git
-cd alt-tab-macos
-git switch -c pre-pro 317a485bcb090bf2b29e3f78872218f0099e1d62
+chmod 600 ~/.env
 ```
 
-Keep Sparkle available for manual checks, but disable automatic updates in all
-three places so an existing user default cannot re-enable them:
+`agents/AGENTS.md` is portable-only. Claims about *this* machine's toolchain
+("Tectonic is installed", which GPU, which model runtime) go in
+`~/.agents/AGENTS.local.md`; asserting them in the tracked file sends agents on a
+fresh machine down dead ends.
 
-- Set `SUEnableAutomaticChecks` to `false` in `Info.plist`.
-- Set the default `updatePolicy` to `.manual` in
-  `src/logic/Preferences.swift`.
-- In `src/logic/events/PreferencesEvents.swift`, force both
-  `automaticallyDownloadsUpdates` and `automaticallyChecksForUpdates` to
-  `false`.
+## 5. Pinned AltTab source build
 
-Select full Xcode and initialize it:
+Optional, and the longest step. Pinned to v10.12.0 (`317a485b`), before AltTab's
+Pro subsystem and source-tree restructure — deliberately giving up later upstream
+work.
 
 ```sh
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-sudo xcodebuild -license accept
-sudo xcodebuild -runFirstLaunch
+git clone https://github.com/lwouis/alt-tab-macos.git ~/src/alt-tab-macos
+cd ~/src/alt-tab-macos && git switch -c pre-pro 317a485bcb090bf2b29e3f78872218f0099e1d62
 ```
 
-Build the workspace; building the project directly does not resolve its CocoaPod
-modules:
+Apply the three Sparkle patches by hand (they stay uncommitted local edits; the
+script verifies them but does not write them):
 
-```sh
-xcodebuild -workspace alt-tab-macos.xcworkspace \
-  -scheme Debug \
-  -configuration Debug \
-  -derivedDataPath DerivedData \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO \
-  build
-```
+- `Info.plist` — `SUEnableAutomaticChecks` → `false`
+- `src/logic/Preferences.swift` — default `updatePolicy` → `.manual`
+- `src/logic/events/PreferencesEvents.swift` — force both
+  `automaticallyDownloadsUpdates` and `automaticallyChecksForUpdates` to `false`
 
-Ad-hoc sign, verify, and install the local build:
+Then `bin/rebuild-alttab` owns the rest:
 
-```sh
-codesign --force --deep --sign - DerivedData/Build/Products/Debug/AltTab.app
-codesign --verify --deep --strict --verbose=2 \
-  DerivedData/Build/Products/Debug/AltTab.app
-killall AltTab
-rsync -a --delete DerivedData/Build/Products/Debug/AltTab.app/ \
-  /Applications/AltTab.app/
-open /Applications/AltTab.app
-```
+| Command | Does |
+| --- | --- |
+| `rebuild-alttab check` | prerequisites + patch state, no build |
+| `rebuild-alttab build` | build, ad-hoc sign, install to `/Applications`, launch |
+| `rebuild-alttab reset-perms` | reset TCC state after a rebuild loses it |
 
-The app is not notarized, so `spctl` may reject it even when local launch works.
-If macOS shows stale permissions after rebuilding, reset and re-grant them:
+Override the checkout location with `ALTTAB_SRC`.
 
-```sh
-killall AltTab
-tccutil reset ScreenCapture com.lwouis.alt-tab-macos
-tccutil reset Accessibility com.lwouis.alt-tab-macos
-open /Applications/AltTab.app
-```
+Facts worth knowing before you debug something that is not broken:
 
-Enable AltTab again under **Privacy & Security → Screen & System Audio
-Recording** and **Privacy & Security → Accessibility**. If approval is still not
-detected, remove and re-add `/Applications/AltTab.app` in both lists.
+- **Full Xcode is required** and must be the selected developer directory; the
+  script refuses to build under the Command Line Tools and prints the three
+  `xcode-select` / `xcodebuild` commands to fix it.
+- **CocoaPods is not needed.** `Pods/` is committed at that commit. Build the
+  *workspace*, not the project — the project alone will not resolve the pods.
+- **Not notarized.** The build is ad-hoc signed, so `spctl -a` rejects it. This
+  is harmless: a locally built bundle carries no quarantine attribute, so
+  Gatekeeper does not gate its launch. Do not "fix" the spctl result.
+- **The version string is literally `#VERSION#`.** A local Debug build leaves
+  `CFBundleShortVersionString` unsubstituted; upstream CI fills it in at release
+  time. Nothing is wrong.
+- **The two TCC grants are GUI-only and cannot be scripted.** After a rebuild,
+  grant AltTab under **Privacy & Security → Screen & System Audio Recording** and
+  **→ Accessibility**. If approval still is not detected, remove and re-add
+  `/Applications/AltTab.app` in both lists.
+- **Sparkle has a fourth re-enable site, not three.**
+  `src/logic/events/UserDefaultsEvents.swift:25` sets
+  `automaticallyChecksForUpdates = true`. It is gated on
+  `automaticallyDownloadsUpdates` already being true, which the patch above
+  forces false, so it is unreachable in steady state — but it is precisely the
+  stale-user-default path the three patches are meant to close. `rebuild-alttab
+  check` reports it as expected rather than pretending three sites is the whole
+  story.
+
+## 6. Editors
+
+**vim** wants pathogen plus nine bundles. `vimrc` guards the
+`pathogen#infect()` call on `~/.vim/autoload/pathogen.vim` being readable, so a
+machine without it still gets a working vim — but every plugin-backed feature is
+silently inert, which is a worse failure to diagnose than an error would be.
+Bundles are third-party checkouts and deliberately not vendored; `vim/plugins.txt`
+lists the nine, each annotated with the vimrc setting or mapping it backs, and
+carries the pathogen + clone commands in its header. `install.sh` fetches them;
+`dotfiles-doctor` reports any that are missing.
+
+**Neovim is staged, not active.** `config/nvim-staged/` is not installed and
+`~/.config/nvim` is `never` in the manifest. Activating it is a migration, not a
+copy: the prerequisite is removing the pathogen/ALE/airline setup `vimrc` still
+relies on, or both plugin systems load at once. Move it into place deliberately,
+then switch `EDITOR` and the `v`/`vim` aliases in `~/.zshrc.local`.
+
+## 7. Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `ls` or `cat` fails in every shell | they are aliased to `eza`/`bat`; the alias needs the tool | `brew bundle --file=Brewfile`. The aliases are defined only when the binary exists, so a stale `~/.zshrc` predating that guard is the other possibility — re-run `./install.sh` |
+| A command using `eza` hangs forever, with no output | eza ≥0.23 reads **stdin** for paths when stdout is not a TTY and never returns if given no path argument. Agent, CI, and `$(…)` shells hit this | the guard lives in `~/.zshenv`, which every zsh reads — `.zshrc` is interactive-only and cannot fix it. Verify `~/.zshenv` is installed |
+| `eza --icons .` → `invalid value '.' for '--icons [<WHEN>]'` | `--icons` takes an *optional* value in eza ≥0.23, so it swallows the next argument | spell the value — `--icons=auto`, which also correctly drops icons when piped — or terminate flags with `-- .`. The tracked `ls`/`la`/`ll`/`lt` aliases and the `~/.zshenv` guard use these respectively; a bare `--icons` anywhere is the bug |
+| vim opens fine but `gc`, `;th`, `:Tabularize`, ALE, and airline do nothing | pathogen or the bundles are missing; the `pathogen#infect()` call is guarded, so this fails silently rather than erroring | see step 6. An *unguarded* `pathogen#infect()` — any older copy of this vimrc — errors on every launch instead |
+| Every `git diff` / `git show` / `git add -p` errors | `core.pager = delta` and `delta` is not installed | `brew install git-delta` |
+| Every commit fails | `commit.gpgsign = true` and the 1Password app is missing, or its SSH agent is off | see step 3. The path is inside the `.app` bundle; the CLI alone is not enough |
+| Claude Code status line shows the directory but no model name | the `statusLine` command reads the model out of its JSON stdin with `jq`, and guards on it, so a missing `jq` costs the model half and nothing else | `brew install jq` (it is in `Brewfile`) |
+| Glyphs render as tofu boxes | no Nerd Font | `brew bundle --file=Brewfile` installs it; then select it in the terminal |
+| Ghostty logs "unknown key" on start | that key is not in your Ghostty version | remove it from the `# >>> dotfiles` block; only append keys the installed version accepts |

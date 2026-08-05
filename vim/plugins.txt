@@ -1,0 +1,59 @@
+# vim/plugins.txt - the pathogen bundles vimrc requires.
+#
+# One `owner/repo` per line; '#' starts a comment. vimrc calls
+# execute pathogen#infect() on line 6, which errors on EVERY vim launch if
+# pathogen is missing, and each plugin below backs a specific vimrc setting or
+# mapping that silently does nothing without it.
+#
+# Pathogen itself is NOT a bundle: it is a single autoload file fetched to
+# ~/.vim/autoload/pathogen.vim, which is what makes ~/.vim/bundle/* loadable.
+#
+#   mkdir -p ~/.vim/autoload ~/.vim/bundle
+#   curl -fLo ~/.vim/autoload/pathogen.vim \
+#     https://raw.githubusercontent.com/tpope/vim-pathogen/master/autoload/pathogen.vim
+#
+# Then clone each line below into ~/.vim/bundle/<repo>:
+#
+#   grep -v '^[[:space:]]*\(#\|$\)' vim/plugins.txt | while read -r repo; do
+#     dest="$HOME/.vim/bundle/${repo##*/}"
+#     [ -d "$dest" ] || git clone --depth 1 "https://github.com/$repo" "$dest"
+#   done
+#
+# Bundles are third-party checkouts and are deliberately not vendored into this
+# repo; this file is the record of which ones vimrc expects.
+
+# Async linting. Backs the g:ale_lint_on_enter / g:ale_lint_on_save /
+# g:ale_lint_on_text_changed / g:ale_set_loclist settings and the SR mapping
+# (:ALEReset). Replaced syntastic.
+dense-analysis/ale
+
+# Statusline. Backs g:airline#extensions#tabline#enabled,
+# g:airline_powerline_fonts, and the g:airline_section_z line/percent readout.
+vim-airline/vim-airline
+
+# Thesaurus lookup. Backs the ;th mapping
+# (:ThesaurusQueryReplaceCurrentWord) used while writing prose and LaTeX.
+ron89/thesaurus_query.vim
+
+# Commenting motions - gc / gcc / gcap. Not mapped explicitly in vimrc; its
+# default operator mappings are the feature.
+tpope/vim-commentary
+
+# Motion jumps (<leader>w, <leader>f and friends) with mapleader set to space.
+easymotion/vim-easymotion
+
+# :Tabularize alignment for tables and assignment blocks, including markdown and
+# LaTeX tabular environments written with the ;beg snippets.
+godlygeek/tabular
+
+# Git from inside vim - :Git, :Gdiffsplit, :Gblame. Note the shell's git already
+# routes through delta; fugitive does its own rendering.
+tpope/vim-fugitive
+
+# Sign-column diff markers against the index, alongside vimrc's number /
+# relativenumber gutter.
+airblade/vim-gitgutter
+
+# Jsonnet filetype, syntax, and indent support. No jsonnet handling exists in
+# vim without it.
+google/vim-jsonnet

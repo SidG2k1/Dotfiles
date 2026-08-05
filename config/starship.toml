@@ -18,7 +18,10 @@ error_symbol   = "[❯](bold red)"
 vimcmd_symbol  = "[❮](bold green)"
 
 [directory]
-truncation_length = 3
+# 0 = no left-truncation, so the full path is shown from ~ down.
+# (3 clipped to the last 3 components: ~/a/b/c/d rendered as "b/c/d".)
+truncation_length = 0
+# Inside a git repo, start the path at the repo root instead of at ~.
 truncate_to_repo  = true
 style             = "blue"
 

@@ -1,0 +1,90 @@
+# manifest.tsv - how each tracked file becomes a live config on a machine.
+#
+# Tab-separated. Blank lines and lines starting with '#' are comments.
+# Columns:  source<TAB>target<TAB>strategy<TAB>note
+#
+# source    path relative to this repo's root, referred to below as $DOTFILES.
+#           $DOTFILES is wherever the clone lives - never a hardcoded path.
+# target    install location; '~' means $HOME.
+# strategy  how the target is produced:
+#             link         repo owns the target outright (symlink)
+#             wrap         target is a stub that sources the repo file, then a
+#                          ~/*.local file if one exists (machine-specific bits)
+#             include      repo file pulled in via the tool's own include
+#                          directive; the target stays user-owned
+#             append-once  idempotent marker-delimited block appended; the rest
+#                          of the target is left untouched
+#             merge-json   jq merge of the tracked key subset into existing JSON
+#             never        not installed by this repo; the note says who owns the
+#                          target and what overwriting it would break
+# note       why this strategy, and what breaks if the strategy is wrong or a
+#           dependency is missing.
+#
+# Every install must degrade gracefully: a missing tool may cost a feature, it
+# may never break ls, cat, cd, git, or shell startup.
+
+
+# ---- shell ----
+zshenv	~/.zshenv	link	Every zsh reads ~/.zshenv - interactive, non-interactive, script, agent, CI - so guards that must always apply live here. The eza stdin guard belongs here, not in zshrc: eza >=0.23 reads stdin for paths when stdout is not a TTY and hangs forever with no path argument, and .zshrc is never sourced by an agent or CI shell.
+zshrc	~/.zshrc	wrap	~/.zshrc becomes a stub that sources $DOTFILES/zshrc, then ~/.zshrc.local if it exists. Machine-specific PATH entries, work aliases, and anything secret-adjacent stay in the untracked .local file and out of this public repo.
+
+# ---- vim ----
+vimrc	~/.vimrc	link	Repo owns the file. Requires pathogen at ~/.vim/autoload/pathogen.vim plus the bundles listed in vim/plugins.txt; without pathogen, execute pathogen#infect() errors on every single vim launch.
+vim/templates	~/.vim/templates	link	Directory symlink. The BufNewFile autocmds in vimrc read ~/.vim/templates/skeleton.* by absolute path, so the whole directory must resolve, not individual files.
+
+# ---- prompt / terminal ----
+config/starship.toml	~/.config/starship.toml	link	Prompt config only. Nothing breaks when starship is absent because zshrc guards its init behind command -v. Provides the repo-root-relative path display (truncation_length=0 + truncate_to_repo=true) that the agent status lines also want.
+config/ghostty/config.ghostty	~/.config/ghostty/config	append-once	Ghostty rewrites parts of this file itself and users hand-set keys in it, so append a marker-delimited block (# >>> dotfiles / # <<< dotfiles) and rewrite only between the markers. Ghostty logs an error per unrecognized key, so only append keys the installed version actually accepts.
+
+# ---- git ----
+gitconfig	~/.gitconfig	include	Add [include] path = $DOTFILES/gitconfig to a user-owned ~/.gitconfig, and keep identity in ~/.gitconfig.local (also included). A symlink here destroys the machine's user.email, user.signingkey, and any [filter "lfs"] block written by git-lfs install.
+config/git/ignore	~/.config/git/ignore	link	Global gitignore. Git ships no default file at this path, so a symlink cannot clobber user content.
+
+# ---- agents (shared instruction file + personal skills) ----
+agents/AGENTS.md	~/.agents/AGENTS.md	link	Canonical shared instructions. Portable statements only: machine-specific environment claims (which TeX engine, which model runtime, which GPU) belong in an untracked ~/.agents/AGENTS.local.md, because asserting a tool exists on a fresh machine sends agents down dead ends.
+agents/AGENTS.md	~/.claude/CLAUDE.md	link	Second symlink to the same file so Claude Code reads one source of truth. Point it at ~/.agents/AGENTS.md, not at $DOTFILES, so the repo can move.
+agents/AGENTS.md	~/.codex/AGENTS.md	link	Third symlink to the same file for Codex. Same indirection through ~/.agents/AGENTS.md.
+agents/skills/autopush	~/.agents/skills/autopush	link	Personal skill: stage selectively, sign-commit, push, refresh the PR body. Signing depends on the 1Password SSH agent (see gitconfig).
+agents/skills/autopush	~/.claude/skills/autopush	link	Relative symlink ../../.agents/skills/autopush so ~/.claude and ~/.agents resolve to the same SKILL.md, as AGENTS.md requires.
+agents/skills/memdump	~/.agents/skills/memdump	link	Personal skill: checkpoint session context to a memory file before a context wipe.
+agents/skills/memdump	~/.claude/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
+agents/skills/memload	~/.agents/skills/memload	link	Personal skill: reload a memory file and re-verify it against the codebase.
+agents/skills/memload	~/.claude/skills/memload	link	Relative symlink ../../.agents/skills/memload; keeps one copy of the skill.
+agents/skills/pr_update	~/.agents/skills/pr_update	link	Personal skill: propose a PR description update via gh, never write without approval. Needs the gh CLI authenticated.
+agents/skills/pr_update	~/.claude/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
+agents/reference	~/.agents/reference	link	Directory symlink. AGENTS.md sends agents to ~/.agents/reference/transcription.md by absolute path, so the directory has to resolve - without this row that pointer is a dead end on every machine. Runbooks only: no machine state, no credentials.
+agents/claude/settings.json	~/.claude/settings.json	merge-json	Claude Code writes this file itself (plugin enable/disable, dismissed prompts, marketplace paths), so merge the tracked key subset with jq rather than linking. The statusLine command pipes through jq: without jq on PATH the status line is silently blank.
+agents/codex/config.toml	~/.codex/config.toml	never	Codex rewrites this file in place, adding installation-specific marketplace paths, MCP servers, and project trust. Linking or overwriting it drops that state. Treat the repo copy as a reference base and copy keys across by hand.
+
+# ---- per-tool config ----
+config/gh/config.yml	~/.config/gh/config.yml	link	gh rewrites this file on `gh config set` and on schema migrations, so with a symlink those edits land in the repo working tree - visible in git status, never lost. Credentials stay in the sibling hosts.yml, which is gitignored and never installed.
+config/vscode/settings.json	~/Library/Application Support/Code/User/settings.json	merge-json	VS Code writes this file from its own settings UI and extensions add keys to it. A symlink would let the UI edit the repo and reformat or drop keys, so jq-merge the tracked subset instead.
+config/yt-dlp/config	~/.config/yt-dlp/config	link	yt-dlp never writes its own config file. The options assume ffmpeg and a node JS runtime; a missing one fails an individual download rather than the shell. Only meaningful with yt-dlp installed (Brewfile.optional).
+config/gnupg/common.conf	~/.gnupg/common.conf	link	Create ~/.gnupg with mode 700 first or gpg refuses to use it. Only relevant when gnupg is installed (Brewfile.optional); harmless otherwise.
+config/docker/daemon.json	~/.docker/daemon.json	merge-json	Docker Desktop rewrites this file from its Settings UI, so merge keys instead of linking. Note builder.gc.defaultKeepStorage is deprecated in favour of a builder.gc.policy array; keep the tracked keys current or Docker warns on start.
+
+# ---- scripts ----
+bin/dotfiles-doctor	~/bin/dotfiles-doctor	link	zshrc puts ~/bin at the front of PATH, and the script resolves its own symlink chain back to the clone, so the copy on PATH always audits this checkout. It writes nothing to the machine or the repo. git is needed to enumerate tracked files for the leak scan; jq only to verify the merge-json rows.
+bin/rebuild-alttab	~/bin/rebuild-alttab	link	zshrc puts ~/bin at the front of PATH. Self-contained bash; override the checkout location with ALTTAB_SRC. Needs full Xcode selected, not just the Command Line Tools.
+
+# ---- deliberately not installed ----
+zprofile	~/.zprofile	never	On a real machine this target is owned by other tools' installers - Homebrew shellenv, container and VM shell hooks, toolchain env snippets - which append to it and rewrite it on upgrade. Overwriting silently removes working integrations. Add the brew shellenv line by hand, or keep it in ~/.zshenv.
+profile	~/.profile	never	Same ownership problem: installer-generated env hooks live here (the uv / rust-toolchain `. $HOME/.local/bin/env` line is exactly one of them) and are regenerated on upgrade. Overwriting silently removes working integrations.
+config/ssh/config	~/.ssh/config	never	Owned by other tools' Include directives and per-host blocks (1Password SSH agent, cloud CLIs, VM and container tooling). Overwriting silently removes working integrations. Add the IdentityAgent line to your own ~/.ssh/config by hand.
+config/fish/conf.d/uv.env.fish	~/.config/fish/conf.d/uv.env.fish	never	Generated by uv's own installer alongside ~/.local/bin/env.fish and recreated on upgrade; it is tracked only as a record of what that installer writes. Rerun the uv installer instead of linking, and note the file sources env.fish unconditionally, so it errors in fish when uv is absent.
+config/nvim-staged	~/.config/nvim	never	Staged, not active. Activating it means first removing the pathogen/ALE/airline setup that vimrc still relies on, otherwise both plugin systems load at once. Move it into place deliberately, not from an installer.
+
+# NOT rows in this manifest, on purpose:
+#
+#   agents/skill-lock.json    Generated machine state - install timestamps,
+#                             last-selected agent list, dismissed prompts. It is
+#                             not a config to install, and it should not be
+#                             tracked at all.
+#   agents/skills/gh-stack    Vendored third-party skills. The skills CLI
+#   agents/skills/find-skills installs and updates these from their upstream
+#                             repos; symlinking the vendored copies would pin
+#                             them to a stale snapshot.
+#   vim/plugins.txt           Input to the installer, not an installed file: the
+#                             bundle list it fetches into ~/.vim/bundle.
+#   Brewfile, Brewfile.optional, README.md, setup.md, this file
+#                             Repo documentation and bootstrap inputs.
