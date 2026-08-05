@@ -1,10 +1,37 @@
+" vimrc - vim 8 with pathogen. NOT self-contained; needs the plugins below.
+"
+" REQUIRED EXTERNAL PLUGINS (deliberately not vendored in this repo):
+"   pathogen itself -> ~/.vim/autoload/pathogen.vim  (tpope/vim-pathogen)
+"   dense-analysis/ale           backs the g:ale_* settings and SR
+"   vim-airline/vim-airline      backs the g:airline_* settings
+"   ron89/thesaurus_query.vim    backs ;th
+"   tpope/vim-commentary         gc / gcc / gcap
+"   easymotion/vim-easymotion    <leader> motion jumps
+"   godlygeek/tabular            :Tabularize
+"   tpope/vim-fugitive           :Git, :Gdiffsplit, :Gblame
+"   airblade/vim-gitgutter       sign-column diff markers
+"   google/vim-jsonnet           jsonnet filetype/syntax/indent
+"
+" vim/plugins.txt is the authoritative list (with the reason for each and the
+" clone commands); install.sh fetches them. Nothing here hard-fails without
+" them: the pathogen call is guarded, because an unguarded
+" execute pathogen#infect() errors on EVERY vim launch on a machine that has no
+" pathogen, and the g:ale_* / g:airline_* variables are inert when the plugins
+" that read them are absent.
+"
 " NOTE: Full Neovim config staged at ~/.config/nvim-staged/ — when ready to switch:
 "   brew install neovim
 "   mv ~/.config/nvim-staged ~/.config/nvim
 "   nvim  (first launch bootstraps lazy.nvim + ~30 plugins)
 " then update ~/.zshrc aliases (v/vi/vim -> nvim) and EDITOR.
 
-execute pathogen#infect()
+" First, and before pathogen: nocompatible is what enables the vim-only
+" behaviour and 'runtimepath' handling that pathogen#infect() manipulates.
+set nocompatible
+
+if filereadable(expand('~/.vim/autoload/pathogen.vim'))
+  execute pathogen#infect()
+endif
 filetype plugin indent on
 set cm=blowfish2
 
@@ -18,8 +45,8 @@ set showmatch " highlight matching [{()}]
 set incsearch " search as characters are entered
 set hlsearch " highlight matches
 set hidden
+set ignorecase "required: smartcase is a no-op on its own, so this was never live
 set smartcase "For ignoring lowercase when search except when uppercase
-set nocompatible
 " Try to put the indent level at the right place
 set smartindent
 set breakindent "wraps on same indent
@@ -47,30 +74,61 @@ set undodir=~/.vim/undo//
 set backupdir=~/.vim/backup//
 set directory=~/.vim/swap//
 
+" vim never creates these itself: a missing undodir silently drops persistent
+" undo, and a missing directory/backupdir makes writes emit E303/E510.
+for s:statedir in ['~/.vim/undo', '~/.vim/backup', '~/.vim/swap']
+  if !isdirectory(expand(s:statedir))
+    silent! call mkdir(expand(s:statedir), 'p', 0700)
+  endif
+endfor
+
 augroup AutoSaveFolds
   autocmd!
   autocmd BufWinLeave ?* silent! mkview
   autocmd BufWinEnter ?* silent! loadview
 augroup END
 
+" Templates. The tracked skeletons carry a {{AUTHOR}} placeholder instead of a
+" name, so a fork of this repo does not stamp its owner into every new file.
+" Fill it in per machine, in ~/.vim/after/plugin/zz-local.vim:
+"     let g:dotfiles_author = 'Your Name'
+" Left unset, the placeholder is removed and the field is simply blank.
+function! s:LoadTemplate(name) abort
+  let l:path = expand('~/.vim/templates/' . a:name)
+  if !filereadable(l:path)
+    return
+  endif
+  execute '0r ' . fnameescape(l:path)
+  " 'e' so a template with no placeholder is not an error. The replacement is
+  " escaped because & and ~ are special on the right-hand side of :s.
+  silent! execute '%s/{{AUTHOR}}/' . escape(get(g:, 'dotfiles_author', ''), '/\&~') . '/ge'
+  call cursor(1, 1)
+endfunction
+
 if has("autocmd")
   augroup templates
-    autocmd BufNewFile *.cpp 0r ~/.vim/templates/skeleton.cpp
-    autocmd BufNewFile *.rmd 0r ~/.vim/templates/skeleton.rmd
-    autocmd BufNewFile *.rkt 0r ~/.vim/templates/skeleton.rkt
-    autocmd BufNewFile *.c 0r ~/.vim/templates/skeleton.c
-    autocmd BufNewFile *.tex 0r ~/.vim/templates/skeleton.tex
+    autocmd!
+    autocmd BufNewFile *.cpp call <SID>LoadTemplate('skeleton.cpp')
+    autocmd BufNewFile *.rmd call <SID>LoadTemplate('skeleton.rmd')
+    autocmd BufNewFile *.rkt call <SID>LoadTemplate('skeleton.rkt')
+    autocmd BufNewFile *.c   call <SID>LoadTemplate('skeleton.c')
+    autocmd BufNewFile *.tex call <SID>LoadTemplate('skeleton.tex')
   augroup END
 endif
 
 
 nnoremap QQ :q!<CR>
 inoremap ;; <Esc>/(++)<Enter>ca)
+" Cost of the two mappings below, kept deliberately: both begin with 'c', so vim
+" must wait out 'timeoutlen' (1000ms default) after every bare c before it can
+" run the operator — cw, ci", cc all stall. <leader>clr / <leader>call (leader is
+" space) would remove the delay without losing the commands.
 nnoremap clr ggdG
 nnoremap spc mtO<esc>jo<esc>`t
 nnoremap call ggVG
 
-" ALE settings (replaces syntastic; async)
+" ALE settings (replaces syntastic; async). Inert without dense-analysis/ale —
+" the variables just sit unread and SR reports an unknown command.
 let g:ale_lint_on_enter = 1
 let g:ale_lint_on_save = 1
 let g:ale_lint_on_text_changed = 'never'
@@ -78,7 +136,8 @@ let g:ale_set_loclist = 1
 let g:ale_open_list = 0
 nnoremap SR :ALEReset<CR>
 
-" Airline (baseline — plugin was installed but unconfigured)
+" Airline (baseline — plugin was installed but unconfigured). Inert without
+" vim-airline; vim falls back to the built-in statusline.
 let g:airline#extensions#tabline#enabled = 0
 let g:airline_powerline_fonts = 0
 let g:airline_section_z = '%l/%L  %p%%'
@@ -126,7 +185,12 @@ autocmd FileType rmd inoremap <C-S-l> $$<esc>i
 
 nnoremap ;th :ThesaurusQueryReplaceCurrentWord<CR>
 
-set spell "Spellcheck
+" Spellcheck prose only. This was a global 'set spell', which flags identifiers,
+" CSS classes and log strings in every code buffer.
+augroup prose_spell
+  autocmd!
+  autocmd FileType markdown,rmd,tex,plaintex,gitcommit,text setlocal spell
+augroup END
 hi clear SpellBad
 hi SpellBad cterm=underline
 set wildmenu " visual autocomplete for command menu

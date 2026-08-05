@@ -1,0 +1,860 @@
+#!/usr/bin/env bash
+#
+# dotfiles-doctor - verify that this repo's manifest matches the live machine.
+#
+# Reads manifest.tsv and checks, per row, that the target was produced by the
+# strategy the manifest claims. Then checks the dependencies that are invisible
+# until they break: Brewfile formulae, pathogen bundles, the two skill trees
+# resolving to one file, and the eza non-TTY hang. Finally it scans tracked
+# files for identity leakage, because this repo is public.
+#
+#   dotfiles-doctor              full run
+#   dotfiles-doctor --strict     treat WARN as failure (use this in review)
+#   dotfiles-doctor --no-probe   skip runtime probes (they spawn zsh/eza)
+#   dotfiles-doctor --only NAME  run one section: install brew skills vim scan probe
+#   dotfiles-doctor --self-test  prove the secret patterns still match samples
+#
+# Exit status: 0 when nothing FAILed, 1 otherwise. WARN never fails the run
+# unless --strict. "Not installed" is a WARN (a fresh or partial machine is a
+# legitimate state); "installed differently than the manifest says" is a FAIL,
+# because that is drift - the repo is no longer the source of truth.
+#
+# Nothing here writes to the machine or to the repo. It is safe to run anywhere.
+#
+# Machine-specific secret patterns (an employer name, an internal domain, a real
+# hostname) must NOT be added to this file - it is public, so the pattern would
+# leak the thing it looks for. Put one extended-regex per line in
+# ~/.dotfiles-doctor.deny (override with $DOTFILES_DOCTOR_DENY); that file is
+# untracked and is read by the scan section if it exists.
+
+# shellcheck disable=SC2088
+# SC2088 ("tilde does not expand in quotes") is disabled file-wide and on
+# purpose. A literal '~' is *data* in this script, never a path to expand:
+# manifest.tsv stores targets as '~/...' strings that are parsed, and report
+# output collapses $HOME back to '~' for readability. Real expansion happens
+# in one place, via "$HOME". Several of these sites are case-branch patterns,
+# where a per-site directive is not valid syntax (SC1124).
+
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# Locate the repo. The script may be reached through a symlink (~/bin is on
+# PATH and bin/rebuild-alttab is linked the same way), so resolve the chain
+# instead of trusting $0's directory.
+# ---------------------------------------------------------------------------
+
+# resolve <path> - print an absolute, symlink-free path. Portable: macOS
+# /usr/bin/readlink has no -f and coreutils' realpath may not be installed.
+resolve() {
+  local p=$1 link n=0
+  while [ -L "$p" ] && [ "$n" -lt 40 ]; do
+    link=$(readlink "$p")
+    case $link in
+      /*) p=$link ;;
+      *)  p="$(dirname "$p")/$link" ;;
+    esac
+    n=$((n + 1))
+  done
+  if [ -d "$p" ]; then
+    (cd -P "$p" 2>/dev/null && pwd -P)
+  else
+    local d
+    d=$(cd -P "$(dirname "$p")" 2>/dev/null && pwd -P) || return 1
+    printf '%s/%s\n' "${d%/}" "$(basename "$p")"
+  fi
+}
+
+SELF=$(resolve "$0") || { echo "dotfiles-doctor: cannot resolve \$0" >&2; exit 2; }
+DOTFILES=${DOTFILES:-$(dirname "$(dirname "$SELF")")}
+MANIFEST="$DOTFILES/manifest.tsv"
+
+# Markers for the append-once strategy. Keep in sync with install.sh and with
+# the manifest note on config/ghostty/config.ghostty.
+BEGIN_MARK='# >>> dotfiles'
+END_MARK='# <<< dotfiles'
+
+STRATEGIES='link wrap include append-once merge-json never'
+
+STRICT=0
+PROBE=1
+ONLY=all
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
+
+n_pass=0
+n_warn=0
+n_fail=0
+n_skip=0
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  C_PASS=$'\033[32m'; C_WARN=$'\033[33m'; C_FAIL=$'\033[31m'
+  C_SKIP=$'\033[90m'; C_HEAD=$'\033[1m';  C_OFF=$'\033[0m'
+else
+  C_PASS=; C_WARN=; C_FAIL=; C_SKIP=; C_HEAD=; C_OFF=
+fi
+
+# Collapse whitespace and clip, so one check is always one line.
+clip() {
+  local s=$1 max=${2:-96}
+  s=$(printf '%s' "$s" | tr '\n\t' '  ' | sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//')
+  if [ "${#s}" -gt "$max" ]; then
+    printf '%s...' "$(printf '%s' "$s" | cut -c "1-$((max - 3))")"
+  else
+    printf '%s' "$s"
+  fi
+}
+
+row() { # row <PASS|WARN|FAIL|SKIP> <item> <detail>
+  local st=$1 item=$2 detail=$3 col=
+  case $st in
+    PASS) col=$C_PASS; n_pass=$((n_pass + 1)) ;;
+    WARN) col=$C_WARN; n_warn=$((n_warn + 1)) ;;
+    FAIL) col=$C_FAIL; n_fail=$((n_fail + 1)) ;;
+    SKIP) col=$C_SKIP; n_skip=$((n_skip + 1)) ;;
+  esac
+  printf '%s%-4s%s  %-46s  %s\n' "$col" "$st" "$C_OFF" "$(clip "$item" 46)" "$(clip "$detail")"
+}
+
+hint() { # extra context, only worth printing under a WARN/FAIL
+  [ -n "${1:-}" ] || return 0
+  printf '      %s%s%s\n' "$C_SKIP" "$(clip "why: $1" 110)" "$C_OFF"
+}
+
+section() {
+  printf '\n%s== %s%s\n' "$C_HEAD" "$1" "$C_OFF"
+}
+
+want() { # want <section-name> - should this section run?
+  [ "$ONLY" = all ] || [ "$ONLY" = "$1" ]
+}
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+# Expand a manifest target: leading ~ means $HOME. Nothing else is expanded -
+# manifest targets are literal paths, and eval'ing them would be a hole.
+expand_target() {
+  case $1 in
+    "~") printf '%s' "$HOME" ;;
+    "~/"*) printf '%s/%s' "$HOME" "${1#\~/}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# Textual expansion used when reading a target file's own source/include lines.
+# Substitutes the few variables an installer would write; never eval.
+expand_ref() {
+  local s=$1
+  s=${s//\"/}
+  s=${s//\'/}
+  s=${s//\$\{DOTFILES\}/$DOTFILES}
+  s=${s//\$DOTFILES/$DOTFILES}
+  s=${s//\$\{HOME\}/$HOME}
+  s=${s//\$HOME/$HOME}
+  case $s in "~/"*) s="$HOME/${s#\~/}" ;; esac
+  printf '%s' "$s"
+}
+
+# Does <file> reference <abs-source> on a source/./include line?
+references_source() {
+  local file=$1 want_abs=$2 line word got
+  [ -f "$file" ] || return 1
+  while IFS= read -r line; do
+    case $line in
+      *[Ss]ource*|*path*|.\ *|*\ .\ *) ;;
+      *) continue ;;
+    esac
+    # Pull out every whitespace-separated token that looks like a path and
+    # compare its expansion to the wanted file.
+    for word in $line; do
+      case $word in
+        *"/"*)
+          got=$(expand_ref "$word")
+          got=${got%\;}
+          got=${got%,}
+          [ "$got" = "$want_abs" ] && return 0
+          if [ -e "$got" ]; then
+            [ "$(resolve "$got" 2>/dev/null)" = "$want_abs" ] && return 0
+          fi
+          ;;
+      esac
+    done
+  done <"$file"
+  return 1
+}
+
+first_sentence() {
+  printf '%s' "$1" | sed -e 's/\([.!?]\) .*/\1/' -e 's/^ *//'
+}
+
+# ---------------------------------------------------------------------------
+# 1. Install strategies, driven by manifest.tsv
+# ---------------------------------------------------------------------------
+
+MANIFEST_SKILLS=
+
+check_install() {
+  section "install strategies (manifest.tsv)"
+
+  if [ ! -f "$MANIFEST" ]; then
+    row FAIL "manifest.tsv" "not found at $MANIFEST - nothing to verify against"
+    return
+  fi
+
+  local src target strategy note abs tgt got
+  while IFS=$'\t' read -r src target strategy note || [ -n "${src:-}" ]; do
+    case ${src:-} in ''|'#'*) continue ;; esac
+    [ -n "${target:-}" ] && [ -n "${strategy:-}" ] || {
+      row FAIL "manifest row: $src" "malformed row - need source<TAB>target<TAB>strategy<TAB>note"
+      continue
+    }
+
+    abs="$DOTFILES/$src"
+    tgt=$(expand_target "$target")
+
+    case " $STRATEGIES " in
+      *" $strategy "*) ;;
+      *)
+        row FAIL "$strategy  $target" "unknown strategy; documented values are: $STRATEGIES"
+        continue
+        ;;
+    esac
+
+    if [ ! -e "$abs" ]; then
+      row FAIL "$strategy  $src" "manifest source does not exist in the repo"
+      continue
+    fi
+
+    # Remember the skills the manifest owns, for the skills section.
+    case $src in
+      agents/skills/*)
+        case $target in
+          "$HOME"/*|"~/.agents/skills/"*)
+            MANIFEST_SKILLS="$MANIFEST_SKILLS ${src#agents/skills/}" ;;
+        esac
+        ;;
+    esac
+
+    case $strategy in
+      link)
+        if [ -L "$tgt" ]; then
+          got=$(resolve "$tgt" 2>/dev/null)
+          if [ "$got" = "$(resolve "$abs")" ]; then
+            row PASS "link  $target" "-> $src"
+          elif [ -z "$got" ] || [ ! -e "$tgt" ]; then
+            row FAIL "link  $target" "broken symlink -> $(readlink "$tgt")"
+            hint "$(first_sentence "${note:-}")"
+          else
+            row FAIL "link  $target" "-> $got, but this checkout is $abs (another clone owns the target)"
+            hint "$(first_sentence "${note:-}")"
+          fi
+        elif [ -e "$tgt" ]; then
+          row FAIL "link  $target" "real file, not a symlink into the repo - edits here are invisible to git"
+          hint "$(first_sentence "${note:-}")"
+        else
+          row WARN "link  $target" "not installed"
+        fi
+        ;;
+
+      wrap)
+        if [ ! -e "$tgt" ]; then
+          row WARN "wrap  $target" "not installed"
+        elif [ -L "$tgt" ]; then
+          row FAIL "wrap  $target" "is a symlink; wrap means a stub file that sources $src plus a .local override"
+          hint "$(first_sentence "${note:-}")"
+        elif references_source "$tgt" "$(resolve "$abs")"; then
+          local localfile="$tgt.local"
+          if references_source "$tgt" "$localfile" || grep -q -- "$(basename "$tgt").local" "$tgt" 2>/dev/null; then
+            row PASS "wrap  $target" "stub sources $src, then $(basename "$tgt").local"
+          else
+            row WARN "wrap  $target" "sources $src but never $(basename "$tgt").local - machine-local overrides are dead"
+          fi
+        else
+          row FAIL "wrap  $target" "exists but does not source $src - the repo config is not being read"
+          hint "$(first_sentence "${note:-}")"
+        fi
+        ;;
+
+      include)
+        if [ ! -e "$tgt" ]; then
+          row WARN "incl  $target" "not installed"
+        elif [ -L "$tgt" ]; then
+          row FAIL "incl  $target" "is a symlink; include means a user-owned file with an include directive"
+          hint "$(first_sentence "${note:-}")"
+        else
+          local ok=1
+          # Prefer the tool's own view when we have one.
+          if [ "$tgt" = "$HOME/.gitconfig" ] && command -v git >/dev/null 2>&1; then
+            local p
+            while IFS= read -r p; do
+              [ -n "$p" ] || continue
+              p=$(expand_ref "$p")
+              [ "$p" = "$abs" ] && ok=0
+              [ -e "$p" ] && [ "$(resolve "$p" 2>/dev/null)" = "$(resolve "$abs")" ] && ok=0
+            done <<EOF
+$(git config --global --get-all include.path 2>/dev/null)
+EOF
+          fi
+          if [ "$ok" -ne 0 ] && references_source "$tgt" "$(resolve "$abs")"; then
+            ok=0
+          fi
+          if [ "$ok" -eq 0 ]; then
+            row PASS "incl  $target" "includes $src"
+            if [ "$tgt" = "$HOME/.gitconfig" ]; then
+              if [ -f "$HOME/.gitconfig.local" ]; then
+                row PASS "incl  ~/.gitconfig.local" "present (identity stays out of the public repo)"
+              else
+                row WARN "incl  ~/.gitconfig.local" "absent - user.email and any signing key have nowhere machine-local to live"
+              fi
+            fi
+          else
+            row FAIL "incl  $target" "exists but has no include directive pointing at $src"
+            hint "$(first_sentence "${note:-}")"
+          fi
+        fi
+        ;;
+
+      append-once)
+        if [ ! -e "$tgt" ]; then
+          row WARN "appd  $target" "not installed"
+        elif grep -qF -- "$BEGIN_MARK" "$tgt" 2>/dev/null && grep -qF -- "$END_MARK" "$tgt" 2>/dev/null; then
+          local nb ne
+          nb=$(grep -cF -- "$BEGIN_MARK" "$tgt")
+          ne=$(grep -cF -- "$END_MARK" "$tgt")
+          if [ "$nb" -eq 1 ] && [ "$ne" -eq 1 ]; then
+            row PASS "appd  $target" "managed block present ($BEGIN_MARK ... $END_MARK)"
+          else
+            row FAIL "appd  $target" "$nb begin / $ne end markers - the block was appended more than once"
+          fi
+        else
+          row FAIL "appd  $target" "exists without the managed markers - the block was never appended or was hand-removed"
+          hint "$(first_sentence "${note:-}")"
+        fi
+        ;;
+
+      merge-json)
+        if [ ! -e "$tgt" ]; then
+          row WARN "json  $target" "not installed"
+        elif ! command -v jq >/dev/null 2>&1; then
+          row WARN "json  $target" "cannot verify: jq is not on PATH"
+        elif ! jq -e . "$tgt" >/dev/null 2>&1; then
+          row FAIL "json  $target" "is not valid JSON"
+        elif ! jq -e . "$abs" >/dev/null 2>&1; then
+          row FAIL "json  $src" "repo copy is not valid JSON"
+        elif jq -se '.[0] as $t | .[1] as $r | ($t * $r) == $t' "$tgt" "$abs" >/dev/null 2>&1; then
+          row PASS "json  $target" "tracked keys from $src are present"
+        else
+          row FAIL "json  $target" "tracked keys from $src are missing or overridden - re-run the jq merge"
+          hint "$(first_sentence "${note:-}")"
+        fi
+        ;;
+
+      never)
+        # The check here is the inverse: prove we did NOT take the file over.
+        if [ -L "$tgt" ]; then
+          got=$(resolve "$tgt" 2>/dev/null)
+          case $got in
+            "$(resolve "$DOTFILES")"/*)
+              row FAIL "nvr   $target" "symlinked into the repo, but the manifest says never install it"
+              hint "$(first_sentence "${note:-}")"
+              ;;
+            *) row PASS "nvr   $target" "not owned by this repo (symlink elsewhere)" ;;
+          esac
+        else
+          row PASS "nvr   $target" "left to its real owner"
+        fi
+        ;;
+    esac
+  done <"$MANIFEST"
+}
+
+# ---------------------------------------------------------------------------
+# 2. Brewfile dependencies. "What breaks" comes from the Brewfile's own comment
+#    above each entry, so the two can never drift apart.
+# ---------------------------------------------------------------------------
+
+brew_prefix() {
+  if [ -n "${HOMEBREW_PREFIX:-}" ]; then
+    printf '%s' "$HOMEBREW_PREFIX"
+  elif command -v brew >/dev/null 2>&1; then
+    brew --prefix 2>/dev/null || printf '/opt/homebrew'
+  else
+    printf '/opt/homebrew'
+  fi
+}
+
+# Is this package present? Checked by artifact, not by asking brew (fast, and
+# correct for things installed outside brew).
+pkg_present() {
+  local kind=$1 name=$2 pfx
+  pfx=$(brew_prefix)
+  case $name in
+    git-delta) command -v delta >/dev/null 2>&1 ;;
+    zsh-autosuggestions)
+      [ -f "$pfx/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] ;;
+    zsh-syntax-highlighting)
+      [ -f "$pfx/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] ;;
+    font-*)
+      local f found=1
+      for f in "$HOME/Library/Fonts"/*JetBrains*Nerd* /Library/Fonts/*JetBrains*Nerd* \
+               "$pfx/Caskroom/$name"; do
+        [ -e "$f" ] && found=0
+      done
+      return $found ;;
+    1password) [ -d "/Applications/1Password.app" ] ;;
+    *)
+      if [ "$kind" = cask ]; then
+        [ -d "$pfx/Caskroom/$name" ]
+      else
+        command -v "$name" >/dev/null 2>&1
+      fi
+      ;;
+  esac
+}
+
+# Pull "Without X, Y" out of the Brewfile comment when it is there - that
+# sentence is exactly "what breaks".
+why_it_matters() {
+  local com=$1 out
+  out=$(printf '%s' "$com" | sed -n 's/.*\(\(Without\|Required\|Requires\)[^.]*\.\).*/\1/p' | head -1)
+  [ -z "$out" ] && out=$(first_sentence "$com")
+  printf '%s' "$out"
+}
+
+check_brewfile() {
+  section "required dependencies (Brewfile)"
+
+  local bf="$DOTFILES/Brewfile"
+  if [ ! -f "$bf" ]; then
+    row WARN "Brewfile" "not found - cannot check required dependencies"
+    return
+  fi
+
+  local is_darwin=0
+  [ "$(uname -s)" = Darwin ] && is_darwin=1
+
+  local kind name com
+  while IFS=$'\t' read -r kind name com; do
+    [ -n "${name:-}" ] || continue
+    if pkg_present "$kind" "$name"; then
+      row PASS "$kind  $name" "present"
+    elif [ "$kind" = cask ] && [ "$is_darwin" -eq 0 ]; then
+      row SKIP "$kind  $name" "macOS-only cask, not checked on $(uname -s)"
+    else
+      row FAIL "$kind  $name" "MISSING - $(why_it_matters "${com:-}")"
+    fi
+  done <<EOF
+$(awk '
+  /^[[:space:]]*#/ {
+    line = $0; sub(/^[[:space:]]*#[[:space:]]?/, "", line)
+    com = (com == "" ? line : com " " line); next
+  }
+  /^[[:space:]]*(brew|cask)[[:space:]]+"/ {
+    kind = $1
+    name = $0; sub(/^[^"]*"/, "", name); sub(/".*$/, "", name)
+    printf "%s\t%s\t%s\n", kind, name, com
+    com = ""; next
+  }
+  { com = "" }
+' "$bf")
+EOF
+
+  # Not a brew formula, but every commit depends on it.
+  if [ "$is_darwin" -eq 1 ]; then
+    local signer
+    signer=$(git config --get gpg.ssh.program 2>/dev/null || true)
+    if [ -n "$signer" ] && [ ! -x "$signer" ]; then
+      row FAIL "sign  gpg.ssh.program" "$signer is not executable - commit.gpgsign=true makes every commit fail"
+    elif [ -n "$signer" ]; then
+      row PASS "sign  gpg.ssh.program" "$(basename "$signer") is executable"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 3. Agent skills: ~/.agents/skills/<s>/SKILL.md and ~/.claude/skills/<s>/SKILL.md
+#    must be the same file, or the two agents read different instructions.
+# ---------------------------------------------------------------------------
+
+check_skills() {
+  section "agent skills (one SKILL.md per skill, two paths)"
+
+  local names s a b ra rb
+  names=$(printf '%s\n' $MANIFEST_SKILLS | sed '/^$/d' | sort -u)
+  if [ -z "$names" ] && [ -d "$DOTFILES/agents/skills" ]; then
+    names=$(cd "$DOTFILES/agents/skills" && ls -1 2>/dev/null)
+  fi
+
+  for s in $names; do
+    a="$HOME/.agents/skills/$s/SKILL.md"
+    b="$HOME/.claude/skills/$s/SKILL.md"
+    if [ ! -e "$a" ] && [ ! -e "$b" ]; then
+      row WARN "skill $s" "not installed in either ~/.agents or ~/.claude"
+      continue
+    fi
+    if [ ! -e "$a" ]; then row FAIL "skill $s" "missing ~/.agents/skills/$s/SKILL.md"; continue; fi
+    if [ ! -e "$b" ]; then row FAIL "skill $s" "missing ~/.claude/skills/$s/SKILL.md - Claude Code will not see this skill"; continue; fi
+    ra=$(resolve "$a" 2>/dev/null)
+    rb=$(resolve "$b" 2>/dev/null)
+    if [ "$ra" = "$rb" ]; then
+      case $ra in
+        "$(resolve "$DOTFILES")"/*) row PASS "skill $s" "both paths -> ${ra#"$(resolve "$DOTFILES")"/}" ;;
+        *) row WARN "skill $s" "both paths agree but resolve outside the repo: $ra" ;;
+      esac
+    else
+      row FAIL "skill $s" "two different files: $ra vs $rb - the agents disagree about this skill"
+    fi
+  done
+
+  # Skills live in ~/.agents but never reached ~/.claude (e.g. vendored ones).
+  if [ -d "$HOME/.agents/skills" ]; then
+    for s in "$HOME/.agents/skills"/*; do
+      [ -e "$s" ] || continue
+      s=$(basename "$s")
+      case " $(printf '%s ' $names) " in *" $s "*) continue ;; esac
+      if [ -e "$HOME/.claude/skills/$s/SKILL.md" ]; then
+        row PASS "skill $s" "unmanaged (vendored) skill, present in both trees"
+      else
+        row WARN "skill $s" "unmanaged skill in ~/.agents only - Claude Code cannot see it"
+      fi
+    done
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 4. vim: pathogen plus every bundle vimrc expects
+# ---------------------------------------------------------------------------
+
+check_vim() {
+  section "vim (pathogen + vim/plugins.txt)"
+
+  local pg="$HOME/.vim/autoload/pathogen.vim"
+  local uses_pathogen=1
+  [ -f "$DOTFILES/vimrc" ] && grep -q 'pathogen#infect' "$DOTFILES/vimrc" && uses_pathogen=0
+
+  if [ "$uses_pathogen" -ne 0 ]; then
+    row SKIP "vim   pathogen" "vimrc does not call pathogen#infect()"
+    return
+  fi
+
+  if [ -f "$pg" ]; then
+    row PASS "vim   pathogen" "~/.vim/autoload/pathogen.vim present"
+  else
+    row FAIL "vim   pathogen" "absent, but vimrc calls pathogen#infect() - vim errors on every launch"
+  fi
+
+  local list="$DOTFILES/vim/plugins.txt" repo dest
+  if [ ! -f "$list" ]; then
+    row WARN "vim   plugins.txt" "not found - cannot check bundles"
+    return
+  fi
+
+  while IFS= read -r repo; do
+    repo=${repo%%#*}
+    repo=$(printf '%s' "$repo" | tr -d '[:space:]')
+    [ -n "$repo" ] || continue
+    dest="$HOME/.vim/bundle/${repo##*/}"
+    if [ -d "$dest" ] && [ -n "$(ls -A "$dest" 2>/dev/null)" ]; then
+      row PASS "vim   ${repo##*/}" "cloned"
+    elif [ -d "$dest" ]; then
+      row FAIL "vim   ${repo##*/}" "~/.vim/bundle/${repo##*/} exists but is empty (interrupted clone)"
+    else
+      row WARN "vim   ${repo##*/}" "not cloned from $repo - the vimrc settings behind it silently do nothing"
+    fi
+  done <"$list"
+}
+
+# ---------------------------------------------------------------------------
+# 5. Runtime probes: the failures that only show up when a tool actually runs.
+# ---------------------------------------------------------------------------
+
+# Does a bare `--icons` still accept a following path on THIS eza? On eza >=0.23
+# --icons takes an optional value, so `eza --icons .` fails and only
+# `--icons=auto` (or a `--` separator) works. That makes it a property of the
+# installed binary, not of the config, so probe it and then check the config.
+check_probe() {
+  section "runtime probes"
+
+  if ! command -v eza >/dev/null 2>&1; then
+    row SKIP "eza   flag parsing" "eza not installed"
+  else
+    if command eza --icons . >/dev/null 2>&1; then
+      row PASS "eza   bare --icons accepts a path" "this eza tolerates 'eza --icons .'"
+    else
+      row PASS "eza   bare --icons rejects a path" "eza >=0.23: --icons takes an optional value, so spell it --icons=auto"
+      # Full-line comments are skipped on purpose: zshrc explains this very bug
+      # in prose, and the prose necessarily contains a bare --icons.
+      local bad
+      bad=$(awk '
+        /^[[:space:]]*#/ { next }
+        /eza/ && /--icons([^=]|$)/ { printf "%d ", NR }
+      ' "$DOTFILES/zshrc" 2>/dev/null)
+      if [ -n "$bad" ]; then
+        row FAIL "eza   zshrc aliases" "zshrc passes a bare --icons on line(s) $bad- those aliases fail on this eza"
+        hint "eza >=0.23 reads the next argument as the value of --icons; use --icons=auto, which also disables icons when piped"
+      else
+        row PASS "eza   zshrc aliases" "no bare --icons in zshrc"
+      fi
+    fi
+  fi
+
+  # The hang. eza >=0.23 reads stdin for paths when stdout is not a TTY; with no
+  # path argument and a stdin that never EOFs it blocks forever. Reproduce it
+  # exactly - a non-interactive zsh (which reads ~/.zshenv but never ~/.zshrc),
+  # stdout to a pipe, stdin an open fifo nobody writes to - with a hard timeout.
+  if ! command -v zsh >/dev/null 2>&1 || ! command -v eza >/dev/null 2>&1; then
+    row SKIP "eza   non-TTY hang" "needs both zsh and eza"
+    return
+  fi
+
+  local d pid alive=1
+  d=$(mktemp -d 2>/dev/null) || { row SKIP "eza   non-TTY hang" "cannot mktemp"; return; }
+  if ! mkfifo "$d/p" 2>/dev/null; then
+    rm -rf "$d"
+    row SKIP "eza   non-TTY hang" "cannot mkfifo"
+    return
+  fi
+  # <> opens the fifo read-write, so it neither blocks nor ever reaches EOF.
+  exec 9<>"$d/p"
+  zsh -c 'eza >/dev/null 2>&1' <"$d/p" >/dev/null 2>&1 &
+  pid=$!
+  for _ in 1 2 3 4 5 6 7 8; do
+    if ! kill -0 "$pid" 2>/dev/null; then alive=0; break; fi
+    sleep 0.5
+  done
+  if [ "$alive" -ne 0 ]; then
+    kill -9 "$pid" 2>/dev/null
+    row FAIL "eza   non-TTY hang" "bare 'eza' hung in a non-interactive zsh - agent and CI shells will freeze"
+    hint "the guard must live in ~/.zshenv (every zsh reads it) and must append '-- .', because '--' stops flag parsing"
+  else
+    row PASS "eza   non-TTY hang" "bare 'eza' returned promptly in a non-interactive zsh"
+  fi
+  wait "$pid" 2>/dev/null
+  exec 9>&-
+  rm -rf "$d"
+}
+
+# ---------------------------------------------------------------------------
+# 6. Identity leakage scan over tracked files.
+#
+# Every pattern below is written so it does not match ITSELF. This file is
+# tracked, so the scan reads it too: a pattern that matched its own source would
+# make the scanner fail on the scanner. The trick is a one-character bracket
+# class - the regex ssh-ed[2]5519 matches the real key prefix in a scanned file,
+# while the text "ssh-ed[2]5519" written here does not match that regex.
+# The same rule applies to the self-test samples, which is why they are
+# assembled with printf at runtime rather than written out literally.
+# `dotfiles-doctor --self-test` enforces both properties.
+# ---------------------------------------------------------------------------
+
+# label|extended-regex
+secret_patterns() {
+  cat <<'PATTERNS'
+email address|[A-Za-z0-9._%+-]+@[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}
+ssh public key|ssh-(rsa|ed[2]5519|dss) A{3}
+private key header|BEGIN ([A-Z]+ )*PRIVATE[ ]KEY
+gh token|gh[pousr]_[A-Za-z0-9]{20,}
+gh fine-grained token|github[_]pat_[A-Za-z0-9_]{20,}
+anthropic key|sk-ant-[a-z]+[0-9]{2}-[A-Za-z0-9_-]{10,}
+openai-style key|sk-[A-Za-z0-9]{32,}
+slack token|xox[baprs]-[0-9A-Za-z-]{10,}
+aws access key|AKI[A][0-9A-Z]{16}
+google api key|AIz[a][0-9A-Za-z_-]{20,}
+gitlab token|glpat-[A-Za-z0-9_-]{16,}
+stripe live key|[srp]k_live_[0-9A-Za-z]{10,}
+npm token|npm_[A-Za-z0-9]{30,}
+PATTERNS
+}
+
+# Benign matches. Deliberately short and explicit: anything not listed here is
+# reported, so a real address can never be waved through by a broad rule.
+BENIGN='(git|hg)@(github|gitlab|bitbucket)\.com|@example\.(com|org|net)|noreply@|@localhost|user@host|you@|name@|@[a-z]+\.local'
+
+check_scan() {
+  section "identity leakage scan (tracked files)"
+
+  if ! command -v git >/dev/null 2>&1; then
+    row WARN "scan" "git not available - cannot enumerate tracked files"
+    return
+  fi
+  if ! (cd "$DOTFILES" && git rev-parse --git-dir >/dev/null 2>&1); then
+    row WARN "scan" "$DOTFILES is not a git repo"
+    return
+  fi
+
+  local files nfiles
+  files=$(cd "$DOTFILES" && git ls-files)
+  nfiles=$(printf '%s\n' "$files" | sed '/^$/d' | wc -l | tr -d ' ')
+
+  local label pat hits total=0 line
+  while IFS='|' read -r label pat; do
+    [ -n "${pat:-}" ] || continue
+    # -I skips binary files; -n gives file:line for the report.
+    #
+    # BENIGN is an email allowlist (git@github.com, @example.com, noreply@ ...)
+    # so it is applied ONLY to the email pattern. Applying it to every pattern
+    # filtered whole LINES, which let a real token ride along on an allowlisted
+    # line -- "url = git@github.com:o/r.git  # <token>" scanned clean while the
+    # same token alone on a line correctly failed.
+    hits=$(cd "$DOTFILES" && printf '%s\n' "$files" | tr '\n' '\0' \
+      | xargs -0 grep -HInE -- "$pat" 2>/dev/null || true)
+    if [ "$label" = "email address" ] && [ -n "$hits" ]; then
+      hits=$(printf '%s\n' "$hits" | grep -Ev -- "$BENIGN" || true)
+    fi
+    if [ -n "$hits" ]; then
+      total=$((total + 1))
+      row FAIL "scan  $label" "$(printf '%s\n' "$hits" | wc -l | tr -d ' ') hit(s) in tracked files"
+      printf '%s\n' "$hits" | head -5 | while IFS= read -r line; do
+        printf '      %s%s%s\n' "$C_FAIL" "$(clip "$line" 110)" "$C_OFF"
+      done
+    fi
+  done <<EOF
+$(secret_patterns)
+EOF
+
+  # Machine-specific patterns, kept out of this public file on purpose.
+  local deny=${DOTFILES_DOCTOR_DENY:-$HOME/.dotfiles-doctor.deny}
+  if [ -f "$deny" ]; then
+    local n=0 denyhits=0
+    while IFS= read -r pat; do
+      case $pat in ''|'#'*) continue ;; esac
+      n=$((n + 1))
+      hits=$(cd "$DOTFILES" && printf '%s\n' "$files" | tr '\n' '\0' \
+        | xargs -0 grep -HInE -- "$pat" 2>/dev/null || true)
+      if [ -n "$hits" ]; then
+        total=$((total + 1))
+        denyhits=$((denyhits + 1))
+        # The pattern itself is machine-private, so report its index and the
+        # locations, never the pattern text - this output can end up in a log.
+        row FAIL "scan  local denylist" "pattern #$n matched: $(printf '%s\n' "$hits" | cut -d: -f1,2 | tr '\n' ' ')"
+      fi
+    done <"$deny"
+    if [ "$denyhits" -eq 0 ]; then
+      row PASS "scan  local denylist" "$n extra pattern(s) from $(basename "$deny"), no hits"
+    fi
+  else
+    row WARN "scan  local denylist" "no $deny - employer names, internal domains and hostnames are not being checked"
+    hint "those patterns must not be committed to a public repo; keep them in that untracked file"
+  fi
+
+  [ "$total" -eq 0 ] && row PASS "scan" "$nfiles tracked file(s), no identity-shaped strings"
+}
+
+# One sample line per pattern, assembled at runtime so that no secret-shaped
+# literal is ever stored in this file. B is a plain 40-char alphanumeric run: on
+# its own it is not secret-shaped, it only becomes so once a prefix is printed
+# in front of it.
+write_samples() {
+  local B=0123456789abcdefghij0123456789abcdefghij
+  printf 'contact: %s@%s\n' "someone.real" "a-real-company.example"
+  printf 'key: ssh-ed%s A%s\n' "25519" "AAC3NzaC1$B"
+  printf -- '-----BEGIN OPENSSH PRIVATE%sKEY-----\n' " "
+  printf 'gh%s_%s\n' "p" "$B"
+  printf 'github%spat_%s\n' "_" "$B"
+  printf 'sk-ant-%s03-%s\n' "api" "$B"
+  printf 'sk-%s\n' "$B"
+  printf 'xox%s-0123456789-%s\n' "b" "abcdefghij"
+  printf 'AKI%s%s\n' "A" "IOSFODNN7EXAMPLE"
+  printf 'AIz%s%s\n' "a" "$B"
+  printf 'glpat%s%s\n' "-" "$B"
+  printf 'sk%slive_%s\n' "_" "$B"
+  printf 'npm%s%s\n' "_" "$B"
+}
+
+# Lines that look address-shaped but must NOT be reported.
+write_benign() {
+  printf 'url = %s@%s:owner/repo.git\n' "git" "github.com"
+  printf 'email = %s@%s\n' "you" "example.com"
+  printf 'ssh: %s@%s\n' "user" "host"
+}
+
+self_test() {
+  section "self-test (secret patterns)"
+  local d
+  d=$(mktemp -d) || exit 2
+  write_samples >"$d/sample"
+  write_benign >"$d/benign"
+
+  local label pat hit
+  while IFS='|' read -r label pat; do
+    [ -n "${pat:-}" ] || continue
+    if grep -qE -- "$pat" "$d/sample"; then
+      row PASS "pattern $label" "matches its sample"
+    else
+      row FAIL "pattern $label" "no longer matches its sample - the self-escaping bracket trick was broken"
+    fi
+    hit=$(grep -InE -- "$pat" "$d/benign" 2>/dev/null | grep -Ev -- "$BENIGN" || true)
+    [ -n "$hit" ] && row FAIL "pattern $label" "false positive on a benign line: $hit"
+  done <<EOF
+$(secret_patterns)
+EOF
+
+  # And the scanner must not flag its own source.
+  while IFS='|' read -r label pat; do
+    [ -n "${pat:-}" ] || continue
+    hit=$(grep -InE -- "$pat" "$SELF" 2>/dev/null | grep -Ev -- "$BENIGN" || true)
+    [ -n "$hit" ] && row FAIL "pattern $label" "matches dotfiles-doctor itself: $(clip "$hit" 60)"
+  done <<EOF
+$(secret_patterns)
+EOF
+  rm -rf "$d"
+}
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+usage() {
+  sed -n '3,30p' "$SELF" | sed 's/^# \{0,1\}//'
+}
+
+do_self_test=0
+while [ $# -gt 0 ]; do
+  case $1 in
+    --strict) STRICT=1 ;;
+    --no-probe) PROBE=0 ;;
+    --only) shift; ONLY=${1:-all} ;;
+    --only=*) ONLY=${1#--only=} ;;
+    --self-test) do_self_test=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'dotfiles-doctor: unknown option %s (try --help)\n' "$1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+SECTIONS='all install brew skills vim probe scan'
+case " $SECTIONS " in
+  *" $ONLY "*) ;;
+  *)
+    printf 'dotfiles-doctor: --only %s is not a section; pick one of: %s\n' "$ONLY" "${SECTIONS#all }" >&2
+    exit 2
+    ;;
+esac
+
+printf '%sdotfiles-doctor%s  repo: %s  host: %s\n' "$C_HEAD" "$C_OFF" "$DOTFILES" "$(uname -s)"
+
+if [ "$do_self_test" -eq 1 ]; then
+  self_test
+else
+  want install && check_install
+  want brew && check_brewfile
+  want skills && check_skills
+  want vim && check_vim
+  want probe && [ "$PROBE" -eq 1 ] && check_probe
+  want scan && check_scan
+fi
+
+printf '\n%s%d pass  %d warn  %d fail  %d skip%s\n' \
+  "$C_HEAD" "$n_pass" "$n_warn" "$n_fail" "$n_skip" "$C_OFF"
+
+if [ "$n_fail" -gt 0 ]; then
+  exit 1
+fi
+if [ "$STRICT" -eq 1 ] && [ "$n_warn" -gt 0 ]; then
+  printf '%s--strict: warnings are failures%s\n' "$C_WARN" "$C_OFF"
+  exit 1
+fi
+exit 0

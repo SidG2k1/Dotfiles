@@ -1,6 +1,8 @@
 # Portable preferences only. Codex-managed paths, project trust, authentication,
 # local browser hashes, and machine-specific MCP servers are intentionally omitted.
-model = "gpt-5.6-sol"
+# No model pin: a specific model id is account- and rollout-specific, the same
+# class of machine-specific assumption removed from agents/AGENTS.md. Set one
+# per machine in ~/.codex/config.toml after this base is copied.
 model_reasoning_effort = "high"
 approvals_reviewer = "auto_review"
 plan_mode_reasoning_effort = "xhigh"

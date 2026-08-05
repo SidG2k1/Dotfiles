@@ -1,7 +1,7 @@
 Use `uv` over `python3` when you can, use matplotlib/seaborn/yfinance and any other libs as needed
 Do not include AI-generation branding in PR descriptions or commits
-Tectonic is installed for latex
-Audio transcription (local, on-device): `uv run --python 3.12 --with mlx-whisper` driving `mlx_whisper.transcribe(..., path_or_hf_repo="mlx-community/whisper-large-v3-turbo")` — Metal GPU, ~10x realtime on Apple Silicon, no cloud. Loop over files, write `.txt`+`.srt`, skip already-done for resumability. ffmpeg decodes most formats (incl. `.aac`). For speaker labels, switch to WhisperX (needs a free HF token).
+This file is shared across every machine, so it states no machine's contents. Which TeX engine, model runtime, GPU, or CLI happens to be installed belongs in `~/.agents/AGENTS.local.md` (untracked, per machine); check a tool exists before building on it rather than assuming.
+Audio transcription (local, on-device, mlx-whisper): runbook in `~/.agents/reference/transcription.md` (repo: `agents/reference/transcription.md`).
 When adding a personal skill under `~/.agents/skills/`, symlink that skill directory into `~/.claude/skills/` and verify both paths resolve to the same `SKILL.md`.
 
 ## Prose for Humans (PR descriptions, docs, comments, commit messages)

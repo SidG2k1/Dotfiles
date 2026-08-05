@@ -4,8 +4,10 @@
 	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
 [commit]
 	gpgsign = true
-[user]
-	name = Siddharth Gupta
+# [user] is deliberately absent. ~/.gitconfig includes this file and then
+# ~/.gitconfig.local, so anything set here WINS over the name/email the machine
+# already had - a symlink is not the only way to overwrite an identity. Name,
+# email and signingkey belong in ~/.gitconfig.local, which is untracked.
 [alias]
 	co = checkout
 	st = status
