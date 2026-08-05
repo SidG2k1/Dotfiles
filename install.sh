@@ -21,6 +21,14 @@
 # Written for the bash that ships with macOS (3.2): no associative arrays, no
 # ${var,,}, no mapfile.
 
+# shellcheck disable=SC2088
+# SC2088 ("tilde does not expand in quotes") is disabled file-wide and on
+# purpose. A literal '~' is *data* in this script, never a path to expand:
+# manifest.tsv stores targets as '~/...' strings that are parsed, and report
+# output collapses $HOME back to '~' for readability. Real expansion happens
+# in one place, via "$HOME". Several of these sites are case-branch patterns,
+# where a per-site directive is not valid syntax (SC1124).
+
 set -euo pipefail
 
 # ---------------------------------------------------------------- environment

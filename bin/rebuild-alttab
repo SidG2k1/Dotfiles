@@ -61,9 +61,13 @@ check_patches() {
     || { warn "Info.plist: SUEnableAutomaticChecks is not false"; bad=1; }
   grep -q 'UpdatePolicyPreference.manual.indexAsString' "$SRC/src/logic/Preferences.swift" \
     || { warn "Preferences.swift: default updatePolicy is not .manual"; bad=1; }
-  grep -q 'automaticallyDownloadsUpdates = false' "$SRC/src/logic/events/PreferencesEvents.swift" \
-    && grep -q 'automaticallyChecksForUpdates = false' "$SRC/src/logic/events/PreferencesEvents.swift" \
-    || { warn "PreferencesEvents.swift: Sparkle flags are not both forced false"; bad=1; }
+  # Written as an if rather than A && B || C: in the chained form the fallback
+  # also runs when A succeeds and B fails, which is right here but only by luck.
+  if ! grep -q 'automaticallyDownloadsUpdates = false' "$SRC/src/logic/events/PreferencesEvents.swift" \
+     || ! grep -q 'automaticallyChecksForUpdates = false' "$SRC/src/logic/events/PreferencesEvents.swift"; then
+    warn "PreferencesEvents.swift: Sparkle flags are not both forced false"
+    bad=1
+  fi
   [ "$bad" -eq 0 ] || die "Sparkle patches missing — see setup.md before building"
   note "Sparkle patches: all three present"
 

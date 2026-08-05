@@ -27,6 +27,14 @@
 # ~/.dotfiles-doctor.deny (override with $DOTFILES_DOCTOR_DENY); that file is
 # untracked and is read by the scan section if it exists.
 
+# shellcheck disable=SC2088
+# SC2088 ("tilde does not expand in quotes") is disabled file-wide and on
+# purpose. A literal '~' is *data* in this script, never a path to expand:
+# manifest.tsv stores targets as '~/...' strings that are parsed, and report
+# output collapses $HOME back to '~' for readability. Real expansion happens
+# in one place, via "$HOME". Several of these sites are case-branch patterns,
+# where a per-site directive is not valid syntax (SC1124).
+
 set -uo pipefail
 
 # ---------------------------------------------------------------------------
@@ -474,7 +482,7 @@ EOF
 check_skills() {
   section "agent skills (one SKILL.md per skill, two paths)"
 
-  local names s a b ra rb seen
+  local names s a b ra rb
   names=$(printf '%s\n' $MANIFEST_SKILLS | sed '/^$/d' | sort -u)
   if [ -z "$names" ] && [ -d "$DOTFILES/agents/skills" ]; then
     names=$(cd "$DOTFILES/agents/skills" && ls -1 2>/dev/null)
@@ -602,7 +610,7 @@ check_probe() {
     return
   fi
 
-  local d pid alive=1 i
+  local d pid alive=1
   d=$(mktemp -d 2>/dev/null) || { row SKIP "eza   non-TTY hang" "cannot mktemp"; return; }
   if ! mkfifo "$d/p" 2>/dev/null; then
     rm -rf "$d"
@@ -613,7 +621,7 @@ check_probe() {
   exec 9<>"$d/p"
   zsh -c 'eza >/dev/null 2>&1' <"$d/p" >/dev/null 2>&1 &
   pid=$!
-  for i in 1 2 3 4 5 6 7 8; do
+  for _ in 1 2 3 4 5 6 7 8; do
     if ! kill -0 "$pid" 2>/dev/null; then alive=0; break; fi
     sleep 0.5
   done
