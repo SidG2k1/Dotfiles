@@ -404,7 +404,6 @@ pkg_present() {
         [ -e "$f" ] && found=0
       done
       return $found ;;
-    1password) [ -d "/Applications/1Password.app" ] ;;
     *)
       if [ "$kind" = cask ]; then
         [ -d "$pfx/Caskroom/$name" ]
@@ -461,17 +460,6 @@ $(awk '
   { com = "" }
 ' "$bf")
 EOF
-
-  # Not a brew formula, but every commit depends on it.
-  if [ "$is_darwin" -eq 1 ]; then
-    local signer
-    signer=$(git config --get gpg.ssh.program 2>/dev/null || true)
-    if [ -n "$signer" ] && [ ! -x "$signer" ]; then
-      row FAIL "sign  gpg.ssh.program" "$signer is not executable - commit.gpgsign=true makes every commit fail"
-    elif [ -n "$signer" ]; then
-      row PASS "sign  gpg.ssh.program" "$(basename "$signer") is executable"
-    fi
-  fi
 }
 
 # ---------------------------------------------------------------------------

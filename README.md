@@ -75,7 +75,8 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # ~/.gitconfig.local
 [user]
 	email = <you@your-domain>
-	signingkey = <your ssh public key>
+# Commit signing, if you use it, is configured here too - the tracked gitconfig
+# sets none, because the signer path and key are machine-specific.
 
 # ~/.ssh/config.local
 Host build
@@ -101,7 +102,6 @@ to a missing package*.
 | --- | --- | --- |
 | `jq` | Claude Code `statusLine` command; every `merge-json` install | the status line silently drops the model name (the command guards on `jq` and still prints the directory) — no error anywhere; `merge-json` installs refuse to run |
 | `delta` (formula `git-delta`) | `gitconfig` `core.pager` + `interactive.diffFilter` | **every** `git diff`, `git show`, `git log -p`, `git add -p` errors out |
-| 1Password **desktop app** | `gpg.ssh.program`, a hardcoded path inside the app bundle, with `commit.gpgsign = true` | every commit fails. The CLI is not a substitute — the signer binary ships inside the `.app`, and its SSH agent must be enabled |
 | pathogen + `vim/plugins.txt` bundles | `vimrc`'s `pathogen#infect()`, which loads `~/.vim/bundle/*` | nothing loudly — the call is guarded on `~/.vim/autoload/pathogen.vim` being readable, so vim still starts. Instead ALE linting, the airline statusline, `;th`, `gc`, easymotion, `:Tabularize`, fugitive, gitgutter, and jsonnet support are all **silently inert**. Bundles are third-party checkouts and deliberately not vendored; `vim/plugins.txt` records the nine vimrc expects, with the fetch commands in its header |
 | `eza`, `bat` | the `ls`/`la`/`ll`/`lt` and `cat` aliases; both fzf previews | the aliases fail. `eza` also needs the `~/.zshenv` guard: from v0.23 it reads stdin for paths when stdout is not a TTY and **hangs forever** with no path argument, which is why that guard cannot live in `.zshrc` (agent, CI, and `$(…)` shells never source it) |
 | Nerd Font | starship glyphs, git status symbols, eza icons | those positions render as tofu boxes |

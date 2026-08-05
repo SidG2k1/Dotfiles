@@ -44,15 +44,15 @@ None of this is scriptable and none of it belongs in the repo.
 
 ```sh
 # Git identity — tracked gitconfig has none, by design
+git config --file ~/.gitconfig.local user.name  "<your name>"
 git config --file ~/.gitconfig.local user.email "<your email>"
-git config --file ~/.gitconfig.local user.signingkey "<your ssh public key>"
+
+# Commit signing is not configured by this repo: the signer path and key are
+# machine-specific, and on a managed Mac the provider is chosen for you. If you
+# want it, set gpg.format / gpg.ssh.program / user.signingkey / commit.gpgsign
+# in ~/.gitconfig.local, where they cannot break another machine.
 ```
 
-- **1Password**: install and sign in, then enable **Settings → Developer → Use
-  the SSH agent**. `commit.gpgsign = true` signs through the signer binary inside
-  the app bundle, so until this is done every commit fails. Add the
-  `IdentityAgent` line to your own `~/.ssh/config` by hand — the repo copy under
-  `config/ssh/` is a reference and is never installed.
 - **CLI auth**: `gh auth login`, plus whichever cloud CLIs you use. Sign in; never
   copy an auth database, keychain, or token file between machines.
 - **VS Code extensions** — install by identifier rather than copying the
@@ -172,7 +172,7 @@ carries the pathogen + clone commands in its header. `install.sh` fetches them;
 | `eza --icons .` → `invalid value '.' for '--icons [<WHEN>]'` | `--icons` takes an *optional* value in eza ≥0.23, so it swallows the next argument | spell the value — `--icons=auto`, which also correctly drops icons when piped — or terminate flags with `-- .`. The tracked `ls`/`la`/`ll`/`lt` aliases and the `~/.zshenv` guard use these respectively; a bare `--icons` anywhere is the bug |
 | vim opens fine but `gc`, `;th`, `:Tabularize`, ALE, and airline do nothing | pathogen or the bundles are missing; the `pathogen#infect()` call is guarded, so this fails silently rather than erroring | see step 6. An *unguarded* `pathogen#infect()` — any older copy of this vimrc — errors on every launch instead |
 | Every `git diff` / `git show` / `git add -p` errors | `core.pager = delta` and `delta` is not installed | `brew install git-delta` |
-| Every commit fails | `commit.gpgsign = true` and the 1Password app is missing, or its SSH agent is off | see step 3. The path is inside the `.app` bundle; the CLI alone is not enough |
+| Every commit fails with a signing error | your `~/.gitconfig.local` sets `commit.gpgsign = true` but the signer or key is unavailable on this machine | this repo configures no signing, so it is local: fix the signer path and key in `~/.gitconfig.local`, or unset `commit.gpgsign` there |
 | Claude Code status line shows the directory but no model name | the `statusLine` command reads the model out of its JSON stdin with `jq`, and guards on it, so a missing `jq` costs the model half and nothing else | `brew install jq` (it is in `Brewfile`) |
 | Glyphs render as tofu boxes | no Nerd Font | `brew bundle --file=Brewfile` installs it; then select it in the terminal |
 | Ghostty logs "unknown key" on start | that key is not in your Ghostty version | remove it from the `# >>> dotfiles` block; only append keys the installed version accepts |

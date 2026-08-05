@@ -32,8 +32,7 @@ brew "ffmpeg"
 brew "pandoc"
 
 # Unlocks config/gnupg/common.conf (use-keyboxd) and the `symcrypt` alias
-# (gpg -c --no-symkey-cache) for symmetric file encryption. Unrelated to commit
-# signing, which goes through 1Password SSH, not GPG.
+# (gpg -c --no-symkey-cache) for symmetric file encryption.
 brew "gnupg"
 
 # Unlocks a fast, self-contained LaTeX build with no TeX Live install. Whether it

@@ -1,13 +1,13 @@
-[gpg]
-	format = ssh
-[gpg "ssh"]
-	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
-[commit]
-	gpgsign = true
-# [user] is deliberately absent. ~/.gitconfig includes this file and then
-# ~/.gitconfig.local, so anything set here WINS over the name/email the machine
-# already had - a symlink is not the only way to overwrite an identity. Name,
-# email and signingkey belong in ~/.gitconfig.local, which is untracked.
+# Commit signing is deliberately NOT configured here. It needs a signer binary
+# at a machine-specific path and a key that only that machine has, and on a
+# managed Mac the provider is chosen by MDM rather than by this repo. Setting
+# commit.gpgsign here would make every commit fail on any machine that does not
+# happen to match. Configure signing per machine in ~/.gitconfig.local.
+#
+# [user] is deliberately absent for the same reason. ~/.gitconfig includes this
+# file and then ~/.gitconfig.local, so anything set here WINS over the name and
+# email the machine already had - a symlink is not the only way to overwrite an
+# identity. Name and email belong in ~/.gitconfig.local, which is untracked.
 [alias]
 	co = checkout
 	st = status

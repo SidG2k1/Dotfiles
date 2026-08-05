@@ -64,9 +64,3 @@ brew "zsh-syntax-highlighting"
 # Nerd Font glyphs for the starship prompt, git status symbols, and the icons in
 # every eza alias. Without it those positions render as tofu boxes.
 cask "font-jetbrains-mono-nerd-font"
-
-# Required for commit signing, not optional: gitconfig sets commit.gpgsign =
-# true with gpg.format = ssh and gpg.ssh.program pointing at the 1Password
-# op-ssh-sign binary inside the app bundle. Without the desktop app installed
-# and its SSH agent enabled, every commit fails.
-cask "1password"

@@ -91,7 +91,6 @@
 !/config/fish/conf.d/uv.env.fish
 !/config/gh/config.yml
 !/config/gnupg/common.conf
-!/config/ssh/config
 !/config/vscode/settings.json
 !/config/yt-dlp/config
 

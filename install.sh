@@ -552,12 +552,11 @@ do_include() {
 				printf '[user]\n'
 				printf '\t# name = <your name>\n'
 				printf '\t# email = <your address>\n'
-				printf '\t# signingkey = <your ssh public key>\n'
 			} >"$localcfg"
 			chmod 600 "$localcfg"
 			changed "$(display_path "$localcfg") created (fill in identity)"
 		fi
-		manual "Fill in $(display_path "$localcfg") with [user] name/email/signingkey. gitconfig sets commit.gpgsign = true, so commits fail until identity and the 1Password SSH signer are both in place."
+		manual "Fill in $(display_path "$localcfg") with [user] name and email. The tracked gitconfig sets no identity and no commit signing - both are machine-specific."
 	else
 		ok "$(display_path "$localcfg") exists (identity left untouched)"
 	fi
@@ -942,10 +941,10 @@ heading "still to do by hand"
 i=1
 say_step() { printf '  %d. %s\n' "$i" "$1"; i=$((i + 1)); }
 
-say_step "Identity: put [user] name, email and signingkey in ~/.gitconfig.local (included by ~/.gitconfig, never tracked). gitconfig sets commit.gpgsign = true with gpg.ssh.program inside the 1Password app bundle, so until both exist every commit fails."
+say_step "Identity: put [user] name and email in ~/.gitconfig.local (included by ~/.gitconfig, never tracked). The tracked gitconfig sets neither identity nor commit signing, so nothing here fails without them - add signing in the same file if you want it."
 say_step "Machine-local seams, all optional and all untracked: ~/.zshrc.local (PATH, work aliases), ~/.agents/AGENTS.local.md (claims about THIS machine's toolchain - which TeX engine, which runtime), ~/.vim/after/plugin/zz-local.vim (per-box vim overrides), ~/.ssh/config.local (real hostnames)."
-say_step "Files this repo deliberately does not install (see the 'never' rows above): add Homebrew's shellenv line to ~/.zprofile yourself, the IdentityAgent line to ~/.ssh/config yourself, and copy keys from agents/codex/config.toml into ~/.codex/config.toml by hand - Codex rewrites that file and linking it drops its state."
-say_step "GUI permission grants no script can make: Ghostty and any terminal you use need Accessibility and Automation; AltTab needs Accessibility plus Screen Recording; 1Password needs its SSH agent enabled ('Developer' settings) for commit signing. Full walkthrough in setup.md."
+say_step "Files this repo deliberately does not install (see the 'never' rows above): add Homebrew's shellenv line to ~/.zprofile yourself, and copy keys from agents/codex/config.toml into ~/.codex/config.toml by hand - Codex rewrites that file and linking it drops its state."
+say_step "GUI permission grants no script can make: Ghostty and any terminal you use need Accessibility and Automation; AltTab needs Accessibility plus Screen Recording. Full walkthrough in setup.md."
 say_step "Fonts and casks installed by brew only appear in apps after a restart of that app; JetBrainsMono Nerd Font is what the starship glyphs and eza icons need."
 if [ ${#BACKED_UP[@]} -gt 0 ]; then
 	say_step "Review what was moved aside in $(display_path "$BACKUP_ROOT") and fold anything machine-specific into the matching .local seam. Nothing was deleted."
