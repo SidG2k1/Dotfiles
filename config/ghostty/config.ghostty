@@ -1,16 +1,14 @@
+# Functional settings only, and that is load-bearing rather than tidiness.
+# install.sh installs this file as a marker-delimited block APPENDED to
+# ~/.config/ghostty/config, and ghostty is last-wins - so any key set here
+# overrides the same key a machine set above the block. theme, font-size,
+# window-padding and background-opacity/blur used to live here and did exactly
+# that, replacing a machine's chosen theme on install. Per-machine appearance
+# belongs above the markers, or in a display-specific override; keep this file
+# to behaviour every machine should share.
+
 # Nerd Font glyphs for lualine, oil, starship, and gitsigns.
 font-family = "JetBrainsMono Nerd Font"
-
-# Slightly larger than Ghostty's 13pt default for easier reading on a Retina display.
-font-size = 14
-
-# Follow the macOS light/dark appearance automatically.
-theme = dark:Catppuccin Mocha,light:Catppuccin Latte
-
-# Give long commands and agent output some breathing room at the window edges.
-window-padding-x = 10
-window-padding-y = 10
-window-padding-balance = true
 
 # Keep more agent and build output available; allocation is lazy and per pane.
 scrollback-limit = 100000000
@@ -35,10 +33,6 @@ clipboard-write = allow
 # Preserve Ghostty's normal zsh integration and prepare interactive SSH sessions.
 # The SSH wrapper installs remote terminfo and falls back safely when it cannot.
 shell-integration-features = cursor,no-sudo,title,path,ssh-env,ssh-terminfo
-
-# Keep the existing frosted-glass appearance.
-background-opacity = 0.80
-background-blur-radius = 20
 
 # Use the native scrollbar behavior selected in macOS settings.
 scrollbar = system
