@@ -1,0 +1,35 @@
+# Starship config — two-line prompt: cwd, git branch/state, duration.
+
+command_timeout = 2000
+add_newline = false
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$git_state\
+$cmd_duration\
+$line_break\
+$character"""
+
+[character]
+success_symbol = "[❯](bold cyan)"
+error_symbol   = "[❯](bold red)"
+vimcmd_symbol  = "[❮](bold green)"
+
+[directory]
+truncation_length = 3
+truncate_to_repo  = true
+style             = "blue"
+
+[git_branch]
+style  = "yellow"
+format = '[\($branch\)]($style) '
+
+[git_status]
+style = "yellow"
+
+[cmd_duration]
+min_time = 2000
+style    = "yellow"
+format   = '[⏱ $duration]($style) '

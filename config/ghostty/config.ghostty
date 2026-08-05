@@ -1,0 +1,53 @@
+# Nerd Font glyphs for lualine, oil, starship, and gitsigns.
+font-family = "JetBrainsMono Nerd Font"
+
+# Slightly larger than Ghostty's 13pt default for easier reading on a Retina display.
+font-size = 14
+
+# Follow the macOS light/dark appearance automatically.
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+
+# Give long commands and agent output some breathing room at the window edges.
+window-padding-x = 10
+window-padding-y = 10
+window-padding-balance = true
+
+# Keep more agent and build output available; allocation is lazy and per pane.
+scrollback-limit = 100000000
+
+# Restore window geometry, tabs, splits, and working directories after quitting.
+# Running processes and scrollback are not restored; use tmux for those if needed.
+window-save-state = always
+
+# Option/Alt acts as Meta for word movement and terminal shortcuts in zsh and nvim.
+macos-option-as-alt = true
+
+# Allow terminal applications to use the clipboard without confirmation.
+clipboard-read = allow
+clipboard-write = allow
+
+# Preserve Ghostty's normal zsh integration and prepare interactive SSH sessions.
+# The SSH wrapper installs remote terminfo and falls back safely when it cannot.
+shell-integration-features = cursor,no-sudo,title,path,ssh-env,ssh-terminfo
+
+# Keep the existing frosted-glass appearance.
+background-opacity = 0.80
+background-blur-radius = 20
+
+# Use the native scrollbar behavior selected in macOS settings.
+scrollbar = system
+
+# Notify only when a command ran for at least 10 seconds and Ghostty is unfocused.
+notify-on-command-finish = unfocused
+notify-on-command-finish-action = bell,notify
+notify-on-command-finish-after = 10s
+
+# Open new tabs and splits in the current terminal's working directory.
+tab-inherit-working-directory = true
+split-inherit-working-directory = true
+
+# Treat common path and handle characters as part of a word when double-clicking.
+selection-word-chars = @-./_~
+
+# Open a fresh Ghostty window from anywhere in macOS.
+keybind = global:cmd+alt+g=new_window
