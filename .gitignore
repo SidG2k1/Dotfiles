@@ -96,15 +96,6 @@
 !/config/yt-dlp/config
 
 # ---- neovim, staged but not active ----
-!/config/nvim-staged/init.lua
-!/config/nvim-staged/init.vim.bak
-!/config/nvim-staged/lazy-lock.json
-!/config/nvim-staged/lua/plugins/editing.lua
-!/config/nvim-staged/lua/plugins/git.lua
-!/config/nvim-staged/lua/plugins/langs.lua
-!/config/nvim-staged/lua/plugins/lsp.lua
-!/config/nvim-staged/lua/plugins/treesitter.lua
-!/config/nvim-staged/lua/plugins/ui.lua
 
 
 # ---------------------------------------------------------------------------

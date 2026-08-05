@@ -43,9 +43,8 @@ brew "gnupg"
 # xelatex, which tectonic does not provide.
 brew "tectonic"
 
-# Unlocks the staged config under config/nvim-staged/ (lazy.nvim bootstraps ~30
-# plugins on first launch). Activating that config is a deliberate migration off
-# vimrc's pathogen/ALE/airline setup - see manifest.tsv - not just an install.
+# Only useful if you intend to build an nvim config from scratch: this repo's editor
+# is vim with pathogen (see vim/plugins.txt), and nothing here configures nvim.
 brew "neovim"
 
 # Unlocks persistent sessions and pane layouts that survive a terminal restart.

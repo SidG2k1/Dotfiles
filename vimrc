@@ -19,11 +19,6 @@
 " pathogen, and the g:ale_* / g:airline_* variables are inert when the plugins
 " that read them are absent.
 "
-" NOTE: Full Neovim config staged at ~/.config/nvim-staged/ — when ready to switch:
-"   brew install neovim
-"   mv ~/.config/nvim-staged ~/.config/nvim
-"   nvim  (first launch bootstraps lazy.nvim + ~30 plugins)
-" then update ~/.zshrc aliases (v/vi/vim -> nvim) and EDITOR.
 
 " First, and before pathogen: nocompatible is what enables the vim-only
 " behaviour and 'runtimepath' handling that pathogen#infect() manipulates.

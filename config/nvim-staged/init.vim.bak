@@ -1,7 +1,0 @@
-" Make neovim look at the same runtime dirs as vim — so pathogen, plugins,
-" spellfiles, templates, and ~/.vim/view all work unchanged.
-set runtimepath^=~/.vim runtimepath+=~/.vim/after
-let &packpath = &runtimepath
-
-" Load the existing Vim config.
-source ~/.vimrc

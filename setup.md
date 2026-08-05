@@ -163,12 +163,6 @@ lists the nine, each annotated with the vimrc setting or mapping it backs, and
 carries the pathogen + clone commands in its header. `install.sh` fetches them;
 `dotfiles-doctor` reports any that are missing.
 
-**Neovim is staged, not active.** `config/nvim-staged/` is not installed and
-`~/.config/nvim` is `never` in the manifest. Activating it is a migration, not a
-copy: the prerequisite is removing the pathogen/ALE/airline setup `vimrc` still
-relies on, or both plugin systems load at once. Move it into place deliberately,
-then switch `EDITOR` and the `v`/`vim` aliases in `~/.zshrc.local`.
-
 ## 7. Troubleshooting
 
 | Symptom | Cause | Fix |
