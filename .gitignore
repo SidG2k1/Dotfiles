@@ -94,6 +94,9 @@
 !/config/vscode/settings.json
 !/config/yt-dlp/config
 
+# ---- macOS user defaults (installer input; no target file, so no manifest row) ----
+!/config/macos/defaults.tsv
+
 # ---- neovim, staged but not active ----
 
 

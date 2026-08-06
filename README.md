@@ -19,7 +19,9 @@ bin/dotfiles-doctor                  # verifies every install landed + deps reso
 
 `install.sh` runs `brew bundle --file=Brewfile` itself (`--skip-brew` opts out);
 the per-feature extras in `Brewfile.optional` are the one dependency step it
-leaves to you. Beyond that it reads `manifest.tsv` and nothing else. Re-running
+leaves to you. Beyond that it reads two files: `manifest.tsv`, for every config
+target, and `config/macos/defaults.tsv`, for the few macOS user defaults that
+have no config file to install (`--skip-macos-defaults` opts out). Re-running
 it is safe. It never overwrites a file it does not own — see the strategies below
 for why that distinction exists.
 

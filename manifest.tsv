@@ -84,5 +84,11 @@ config/fish/conf.d/uv.env.fish	~/.config/fish/conf.d/uv.env.fish	never	Generated
 #                             them to a stale snapshot.
 #   vim/plugins.txt           Input to the installer, not an installed file: the
 #                             bundle list it fetches into ~/.vim/bundle.
+#   config/macos/defaults.tsv macOS user defaults. Also an installer input, and
+#                             unrepresentable here for a second reason: a user
+#                             default has no target path, so there is no file for
+#                             a strategy to produce. install.sh applies it in the
+#                             `macos` group; dotfiles-doctor --only macos checks
+#                             the live values against it.
 #   Brewfile, Brewfile.optional, README.md, setup.md, this file
 #                             Repo documentation and bootstrap inputs.

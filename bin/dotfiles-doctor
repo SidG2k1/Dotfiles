@@ -11,7 +11,7 @@
 #   dotfiles-doctor              full run
 #   dotfiles-doctor --strict     treat WARN as failure (use this in review)
 #   dotfiles-doctor --no-probe   skip runtime probes (they spawn zsh/eza)
-#   dotfiles-doctor --only NAME  run one section: install brew skills vim scan probe
+#   dotfiles-doctor --only NAME  one section: install brew skills vim macos scan probe
 #   dotfiles-doctor --self-test  prove the secret patterns still match samples
 #
 # Exit status: 0 when nothing FAILed, 1 otherwise. WARN never fails the run
@@ -556,7 +556,70 @@ check_vim() {
 }
 
 # ---------------------------------------------------------------------------
-# 5. Runtime probes: the failures that only show up when a tool actually runs.
+# 5. macOS user defaults from config/macos/defaults.tsv.
+#
+# These have no manifest row - there is no target file for a user default - so
+# this section is the only thing that notices when a live value has drifted from
+# the tracked one. Unset is a WARN (a machine that has not run the installer is
+# a legitimate state); a different value is a FAIL, same rule as everywhere else.
+# ---------------------------------------------------------------------------
+
+check_macos_defaults() {
+  section "macos defaults (config/macos/defaults.tsv)"
+
+  local list="$DOTFILES/config/macos/defaults.tsv"
+  local scope domain key type value note cur want lower
+
+  if [ "$(uname -s)" != Darwin ]; then
+    row SKIP "macos user defaults" "host is $(uname -s), not Darwin"
+    return
+  fi
+  if [ ! -f "$list" ]; then
+    row WARN "macos defaults.tsv" "not found - cannot check any user default"
+    return
+  fi
+  if ! command -v defaults >/dev/null 2>&1; then
+    row FAIL "macos user defaults" "the 'defaults' command is not on PATH"
+    return
+  fi
+
+  # fd 6, so nothing invoked in the loop body can swallow the rest of the file.
+  while IFS=$'\t' read -r scope domain key type value note <&6; do
+    case $scope in ''|'#'*) continue ;; esac
+    if [ -z "${key:-}" ] || [ -z "${value:-}" ]; then
+      row FAIL "macos ${key:-<unnamed row>}" "malformed row: needs scope, domain, key, type, value, note - tab separated"
+      continue
+    fi
+
+    want=$value
+    if [ "$type" = bool ]; then
+      lower=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
+      case $lower in
+        1|true|yes|on) want=1 ;;
+        0|false|no|off) want=0 ;;
+      esac
+    fi
+
+    if [ "$scope" = currentHost ]; then
+      cur=$(defaults -currentHost read "$domain" "$key" 2>/dev/null)
+    else
+      cur=$(defaults read "$domain" "$key" 2>/dev/null)
+    fi
+
+    if [ -z "$cur" ]; then
+      row WARN "macos $key" "unset on this machine - apply it with ./install.sh --only macos"
+      hint "$(first_sentence "${note:-}")"
+    elif [ "$cur" = "$want" ]; then
+      row PASS "macos $key" "$cur${scope:+ ($scope)}"
+    else
+      row FAIL "macos $key" "live value is $cur; defaults.tsv tracks $want - drift"
+      hint "either re-run ./install.sh --only macos to reassert the tracked value, or update defaults.tsv if the live one is what you now want"
+    fi
+  done 6<"$list"
+}
+
+# ---------------------------------------------------------------------------
+# 6. Runtime probes: the failures that only show up when a tool actually runs.
 # ---------------------------------------------------------------------------
 
 # Does a bare `--icons` still accept a following path on THIS eza? On eza >=0.23
@@ -626,7 +689,7 @@ check_probe() {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Identity leakage scan over tracked files.
+# 7. Identity leakage scan over tracked files.
 #
 # Every pattern below is written so it does not match ITSELF. This file is
 # tracked, so the scan reads it too: a pattern that matched its own source would
@@ -813,7 +876,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-SECTIONS='all install brew skills vim probe scan'
+SECTIONS='all install brew skills vim macos probe scan'
 case " $SECTIONS " in
   *" $ONLY "*) ;;
   *)
@@ -831,6 +894,7 @@ else
   want brew && check_brewfile
   want skills && check_skills
   want vim && check_vim
+  want macos && check_macos_defaults
   want probe && [ "$PROBE" -eq 1 ] && check_probe
   want scan && check_scan
 fi

@@ -6,11 +6,15 @@
 # row in it, and the strategy column decides HOW a target is produced. Nothing
 # here hardcodes a username or a /Users/... path, and nothing writes a secret.
 #
-#   ./install.sh                      install everything
-#   ./install.sh --dry-run            print the plan, touch nothing
-#   ./install.sh --only vim           one group (see --help for the list)
-#   ./install.sh --skip-brew          leave Homebrew alone
-#   ./install.sh --skip-vim-plugins   do not fetch pathogen or the bundles
+#   ./install.sh                        install everything
+#   ./install.sh --dry-run              print the plan, touch nothing
+#   ./install.sh --only vim             one group (see --help for the list)
+#   ./install.sh --skip-brew            leave Homebrew alone
+#   ./install.sh --skip-vim-plugins     do not fetch pathogen or the bundles
+#   ./install.sh --skip-macos-defaults  do not write any macOS user default
+#
+# One phase is not manifest-driven: config/macos/defaults.tsv holds macOS user
+# defaults, which have no target file to link and so cannot be a manifest row.
 #
 # Re-running is safe: an already-correct target is reported and left alone. Any
 # target that exists and is not already correct is backed up under
@@ -48,6 +52,7 @@ DOTFILES="$(cd -P "$(dirname -- "$SCRIPT_SRC")" && pwd)"
 MANIFEST="$DOTFILES/manifest.tsv"
 PLUGIN_LIST="$DOTFILES/vim/plugins.txt"
 BREWFILE="$DOTFILES/Brewfile"
+MACOS_DEFAULTS="$DOTFILES/config/macos/defaults.tsv"
 
 PATHOGEN_URL="https://raw.githubusercontent.com/tpope/vim-pathogen/master/autoload/pathogen.vim"
 
@@ -59,9 +64,10 @@ BACKUP_ROOT="$HOME/dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 DRY_RUN=0
 SKIP_BREW=0
 SKIP_VIM_PLUGINS=0
+SKIP_MACOS_DEFAULTS=0
 ONLY=""
 
-VALID_GROUPS="dirs brew shell vim terminal git agents tools scripts never vim-plugins"
+VALID_GROUPS="dirs brew shell vim terminal git agents tools scripts never vim-plugins macos"
 
 # ------------------------------------------------------------------- plumbing
 
@@ -105,15 +111,18 @@ die() { printf '%serror:%s %s\n' "$C_RED" "$C_RESET" "$1" >&2; exit 1; }
 usage() {
 	cat <<'EOF'
 Usage: ./install.sh [--dry-run] [--only <group>] [--skip-brew] [--skip-vim-plugins]
+                    [--skip-macos-defaults]
 
-  --dry-run            print every action that would be taken; change nothing
-  --only <group>       restrict to one group of manifest rows (below)
-  --skip-brew          do not run `brew bundle`
-  --skip-vim-plugins   do not fetch pathogen or clone vim/plugins.txt bundles
-  -h, --help           this text
+  --dry-run              print every action that would be taken; change nothing
+  --only <group>         restrict to one group of manifest rows (below)
+  --skip-brew            do not run `brew bundle`
+  --skip-vim-plugins     do not fetch pathogen or clone vim/plugins.txt bundles
+  --skip-macos-defaults  do not write any macOS user default
+  -h, --help             this text
 
-Groups. shell..never are the section headers in manifest.tsv; dirs, brew and
-vim-plugins are phases of this script with no manifest rows of their own:
+Groups. shell..never are the section headers in manifest.tsv; dirs, brew,
+vim-plugins and macos are phases of this script with no manifest rows of their
+own:
   dirs         only create the directories the other groups need, then stop
   shell        ~/.zshenv, ~/.zshrc
   vim          ~/.vimrc, ~/.vim/templates  (+ vim-plugins unless skipped)
@@ -125,9 +134,10 @@ vim-plugins are phases of this script with no manifest rows of their own:
   never        print the rows this repo deliberately does not install, and why
   brew         Homebrew bundle only
   vim-plugins  pathogen + bundles only
+  macos        macOS user defaults from config/macos/defaults.tsv only
 
-Directory creation runs for every group except `brew` and `never`, which touch
-no target; --dry-run suppresses it like everything else.
+Directory creation runs for every group except `brew`, `never` and `macos`,
+which touch no target; --dry-run suppresses it like everything else.
 EOF
 }
 
@@ -309,6 +319,7 @@ while [ $# -gt 0 ]; do
 		--dry-run) DRY_RUN=1 ;;
 		--skip-brew) SKIP_BREW=1 ;;
 		--skip-vim-plugins) SKIP_VIM_PLUGINS=1 ;;
+		--skip-macos-defaults) SKIP_MACOS_DEFAULTS=1 ;;
 		--only)
 			[ $# -ge 2 ] || die "--only needs a group name. Valid: $VALID_GROUPS"
 			ONLY="$2"
@@ -897,6 +908,128 @@ phase_vim_plugins() {
 	return 0
 }
 
+# The one phase with no manifest rows behind it. A user default has no target
+# file, so there is nothing to link, wrap or merge and no row could describe it;
+# config/macos/defaults.tsv is the source of truth for which keys are set, and
+# everything here is only how they get applied.
+
+# defaults_read <scope> <domain> <key> -> current value; non-zero when unset.
+defaults_read() {
+	case "$1" in
+		currentHost) defaults -currentHost read "$2" "$3" 2>/dev/null ;;
+		*) defaults read "$2" "$3" 2>/dev/null ;;
+	esac
+}
+
+# Normalise a tracked value for comparison against what `defaults read` prints.
+# Only bools need it: they read back as 1/0, so a tracked `true` would look
+# unequal to the value already written and be rewritten on every run.
+normalise_default() {
+	local val_lower
+	if [ "$1" != bool ]; then printf '%s\n' "$2"; return 0; fi
+	val_lower="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"
+	case "$val_lower" in
+		1|true|yes|on) printf '1\n' ;;
+		0|false|no|off) printf '0\n' ;;
+		*) printf '%s\n' "$2" ;;
+	esac
+}
+
+phase_macos_defaults() {
+	heading "macos defaults"
+	local scope domain key type value note_text
+	local cur want scope_flag restart_menubar=0 wrote=0
+
+	if [ "$(uname -s)" != Darwin ]; then
+		skipped "macOS user defaults (host is $(uname -s), not Darwin)"
+		return 0
+	fi
+	if ! command -v defaults >/dev/null 2>&1; then
+		fail "the 'defaults' command is not on PATH; no macOS default applied" \
+			"It ships with macOS at /usr/bin/defaults, so a missing one means PATH is broken rather than that something needs installing. Every config install above is unaffected."
+		return 0
+	fi
+	if [ ! -f "$MACOS_DEFAULTS" ]; then
+		fail "$(display_path "$MACOS_DEFAULTS") not found; no macOS default applied"
+		return 0
+	fi
+
+	# fd 5: fd 3 and 4 are already spoken for by the manifest and plugin loops,
+	# and `defaults` must not be able to eat the rest of this file from stdin.
+	while IFS=$'\t' read -r scope domain key type value note_text <&5 || [ -n "${scope:-}" ]; do
+		case "$scope" in
+			''|'#'*) continue ;;
+		esac
+		if [ -z "${key:-}" ] || [ -z "${value:-}" ]; then
+			fail "defaults.tsv row '$scope' is incomplete" \
+				"Every row needs scope<TAB>domain<TAB>key<TAB>type<TAB>value<TAB>note - spaces are not separators. Nothing was written for this row; the other rows still ran."
+			continue
+		fi
+		case "$scope" in
+			currentHost) scope_flag=" -currentHost" ;;
+			any) scope_flag="" ;;
+			*)
+				fail "defaults.tsv: scope '$scope' for $key is not currentHost or any"
+				continue
+				;;
+		esac
+		case "$type" in
+			int|float|bool|string) ;;
+			*)
+				fail "defaults.tsv: type '$type' for $key is not int, float, bool or string"
+				continue
+				;;
+		esac
+
+		want="$(normalise_default "$type" "$value")"
+		cur="$(defaults_read "$scope" "$domain" "$key")" || true
+		if [ "$cur" = "$want" ]; then
+			ok "$domain $key = $value${scope_flag:+ (per-host)}"
+			continue
+		fi
+		if [ "$DRY_RUN" -eq 1 ]; then
+			plan "defaults$scope_flag write $domain $key -$type $value${cur:+ (currently $cur)}"
+			continue
+		fi
+
+		wrote=0
+		if [ "$scope" = currentHost ]; then
+			defaults -currentHost write "$domain" "$key" "-$type" "$value" && wrote=1
+		else
+			defaults write "$domain" "$key" "-$type" "$value" && wrote=1
+		fi
+		# Read back rather than trusting the exit status: `defaults` reports
+		# success for a write cfprefsd then declines to persist (a managed
+		# profile pinning the key does exactly this).
+		cur="$(defaults_read "$scope" "$domain" "$key")" || true
+		if [ "$wrote" -eq 1 ] && [ "$cur" = "$want" ]; then
+			changed "$domain $key = $value${scope_flag:+ (per-host)}"
+			case "$key" in
+				NSStatusItem*) restart_menubar=1 ;;
+			esac
+		else
+			fail "could not set $key in $domain${scope_flag:+ (per-host)}" \
+				"${note_text:-}"
+		fi
+	done 5<"$MACOS_DEFAULTS"
+
+	if [ "$restart_menubar" -eq 1 ]; then
+		# NSStatusItem* is read when a status item is CREATED, so writing the
+		# pref changes nothing already on screen. launchd brings both of these
+		# straight back and the menu bar blinks once. Third-party menubar apps
+		# are deliberately left alone: quitting an app the user is running, to
+		# refresh its icon spacing, is not an installer's call.
+		if [ "$DRY_RUN" -eq 1 ]; then
+			plan "killall SystemUIServer ControlCenter (draws the new menu bar spacing without a logout)"
+		else
+			killall SystemUIServer ControlCenter >/dev/null 2>&1 || true
+			changed "restarted SystemUIServer + ControlCenter to draw the new menu bar spacing"
+		fi
+		manual "Menu bar spacing changed. Any third-party menubar app that was already running still draws at the old spacing - quit and reopen it (or log out) to make the whole bar consistent."
+	fi
+	return 0
+}
+
 # ----------------------------------------------------------------------- main
 
 printf '%sdotfiles install%s  repo: %s\n' "$C_BOLD" "$C_RESET" "$(display_path "$DOTFILES")"
@@ -908,7 +1041,7 @@ if [ -n "$ONLY" ]; then printf 'only: %s\n' "$ONLY"; fi
 # Directory creation is a prerequisite for nearly every row, so it runs for any
 # group - except the two that touch no target at all.
 case "$ONLY" in
-	brew|never) ;;
+	brew|never|macos) ;;
 	*) phase_dirs ;;
 esac
 
@@ -926,6 +1059,13 @@ if [ "$SKIP_VIM_PLUGINS" -eq 1 ]; then
 	skipped "pathogen + bundles (--skip-vim-plugins)"
 elif want_group vim-plugins; then
 	phase_vim_plugins
+fi
+
+if [ "$SKIP_MACOS_DEFAULTS" -eq 1 ]; then
+	heading "macos defaults"
+	skipped "macOS user defaults (--skip-macos-defaults)"
+elif want_group macos; then
+	phase_macos_defaults
 fi
 
 # ------------------------------------------------------------------- epilogue

@@ -1,0 +1,40 @@
+# config/macos/defaults.tsv - macOS user defaults install.sh applies.
+#
+# Input to the installer, not an installed file: there is no target path to link,
+# so this has no manifest.tsv row (the manifest maps a tracked FILE onto a
+# target). install.sh reads it in the `macos` group; --skip-macos-defaults opts
+# out; bin/dotfiles-doctor --only macos verifies each row against the live value.
+#
+# Tab-separated. Blank lines and lines starting with '#' are comments.
+# Columns:  scope<TAB>domain<TAB>key<TAB>type<TAB>value<TAB>note
+#
+# scope    currentHost  per-machine preference (defaults -currentHost ...).
+#                       Required for keys macOS itself only reads per-host;
+#                       written to ~/Library/Preferences/ByHost/, so it does not
+#                       follow a synced or migrated home directory.
+#          any          the ordinary all-hosts domain (defaults ...).
+# domain   preference domain. NSGlobalDomain is the global one and is accepted
+#          alongside -currentHost.
+# type     int | float | bool | string. Becomes the -int/-float/-bool/-string
+#          flag on `defaults write`; a bool reads back as 1/0, which the
+#          installer accounts for when deciding whether a row already matches.
+# value    the value to write.
+# note     why this value, and what it costs. Same rule as manifest.tsv: only
+#          what cannot be read off the key name.
+#
+# Nothing here is identity or machine state - these are preferences, portable to
+# any Mac. A key whose right value differs per machine does not belong in a
+# tracked file at all.
+
+
+# ---- menu bar ----
+# Both keys are unset by default; macOS then uses 12pt spacing and 16pt selection
+# padding. At 2 the bar fits far more items before macOS starts hiding them under
+# a notched display's camera housing, which is the whole point.
+#
+# These take effect when a status item is CREATED, not when the pref is written:
+# every already-running app keeps its old spacing until it is relaunched. The
+# installer restarts the two processes that own the system-side items; a
+# third-party menubar app needs its own relaunch (setup.md records this).
+currentHost	NSGlobalDomain	NSStatusItemSpacing	int	2	Gap between menu bar status items. Lower is tighter; 0 makes adjacent icons touch with no gap at all.
+currentHost	NSGlobalDomain	NSStatusItemSelectionPadding	int	2	Padding of the click-highlight drawn around a status item. Keep it at or near the spacing above: a value much larger re-inflates the bar the spacing just tightened, and 0 makes the highlight hug the glyph.
