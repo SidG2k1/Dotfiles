@@ -64,6 +64,7 @@ Every seam is untracked, optional, and absent-safe.
 | `~/.ssh/config.local` | `Include` in your own `~/.ssh/config` | per-host blocks — real hostnames never enter this repo |
 | `~/.vim/after/plugin/zz-local.vim` | vim's `after/plugin` load path | per-box overrides that must win over plugin defaults |
 | `~/.agents/AGENTS.local.md` | agents read it alongside `~/.agents/AGENTS.md` | claims about *this* machine's toolchain |
+| `~/.agents/skills.local/<name>/SKILL.md` | symlinked into `~/.claude/skills/` and `~/.codex/skills/`, the same shape the tracked skills use | personal skills that name an internal host or a private service, so they cannot go in `agents/skills/` — see `~/.claude/skills/README.md` |
 
 ```sh
 # ~/.zshrc.local
