@@ -8,6 +8,9 @@
 # or pick individually:
 #   brew install rclone
 
+# Terminal UI for inspecting and operating Kubernetes clusters.
+brew "k9s"
+
 # Unlocks the `onedrive` alias in zshrc (rclone --vfs-cache-mode writes mount
 # onedrive: ~/OneDrive). Also needs an `onedrive` remote configured with
 # `rclone config`; the alias is a command-not-found without the binary.
