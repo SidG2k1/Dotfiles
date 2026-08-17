@@ -946,6 +946,7 @@ say_step "Machine-local seams, all optional and all untracked: ~/.zshrc.local (P
 say_step "Files this repo deliberately does not install (see the 'never' rows above): add Homebrew's shellenv line to ~/.zprofile yourself, and copy keys from agents/codex/config.toml into ~/.codex/config.toml by hand - Codex rewrites that file and linking it drops its state."
 say_step "GUI permission grants no script can make: Ghostty and any terminal you use need Accessibility and Automation; AltTab needs Accessibility plus Screen Recording. Full walkthrough in setup.md."
 say_step "Fonts and casks installed by brew only appear in apps after a restart of that app; JetBrainsMono Nerd Font is what the starship glyphs and eza icons need."
+say_step "Mos (installed by Brewfile) does nothing until you launch it, grant it Accessibility, and turn on reverse scrolling in its own preferences window - vertical and horizontal are separate toggles. Its settings live in ~/Library/Preferences/com.caldis.Mos.plist, which cfprefsd owns and rewrites, so no tracked file in this repo can set them for you."
 if [ ${#BACKED_UP[@]} -gt 0 ]; then
 	say_step "Review what was moved aside in $(display_path "$BACKUP_ROOT") and fold anything machine-specific into the matching .local seam. Nothing was deleted."
 fi

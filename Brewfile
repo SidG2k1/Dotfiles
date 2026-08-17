@@ -64,3 +64,9 @@ brew "zsh-syntax-highlighting"
 # Nerd Font glyphs for the starship prompt, git status symbols, and the icons in
 # every eza alias. Without it those positions render as tofu boxes.
 cask "font-jetbrains-mono-nerd-font"
+
+# Smooth mouse-wheel scrolling, and a scroll direction set independently of the
+# trackpad's. The exception to this file's rule: no config here reads it, and
+# nothing in the repo degrades without it. It is required rather than optional
+# because an external mouse is unusable on a fresh machine until it is running.
+cask "mos"
