@@ -44,6 +44,8 @@ config/git/ignore	~/.config/git/ignore	link	Global gitignore. Git ships no defau
 agents/AGENTS.md	~/.agents/AGENTS.md	link	Canonical shared instructions. Portable statements only: machine-specific environment claims (which TeX engine, which model runtime, which GPU) belong in an untracked ~/.agents/AGENTS.local.md, because asserting a tool exists on a fresh machine sends agents down dead ends.
 agents/AGENTS.md	~/.claude/CLAUDE.md	link	Second symlink to the same file so Claude Code reads one source of truth. Point it at ~/.agents/AGENTS.md, not at $DOTFILES, so the repo can move.
 agents/AGENTS.md	~/.codex/AGENTS.md	link	Third symlink to the same file for Codex. Same indirection through ~/.agents/AGENTS.md.
+agents/skills/anti-slop	~/.agents/skills/anti-slop	link	Personal skill: keep agent-authored code changes minimal, idiomatic, and within scope.
+agents/skills/anti-slop	~/.claude/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/autopush	~/.agents/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
 agents/skills/autopush	~/.claude/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
 agents/skills/memdump	~/.agents/skills/memdump	link	Personal skill: checkpoint session context to a memory file before a context wipe.
