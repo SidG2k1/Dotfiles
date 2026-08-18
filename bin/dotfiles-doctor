@@ -386,8 +386,33 @@ brew_prefix() {
   fi
 }
 
-# Is this package present? Checked by artifact, not by asking brew (fast, and
-# correct for things installed outside brew).
+cask_present() {
+  local name=$1 pfx=$2 artifact
+  [ -d "$pfx/Caskroom/$name" ] && return 0
+  command -v brew >/dev/null 2>&1 || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+
+  while IFS= read -r artifact; do
+    [ -n "$artifact" ] || continue
+    case $artifact in
+      /*)
+        [ -e "$artifact" ] && return 0
+        ;;
+      *)
+        if [ -e "/Applications/$artifact" ] || [ -e "$HOME/Applications/$artifact" ]; then
+          return 0
+        fi
+        ;;
+    esac
+  done < <(
+    HOMEBREW_NO_AUTO_UPDATE=1 brew info --cask --json=v2 "$name" 2>/dev/null |
+      jq -r '.casks[0].artifacts[]? | objects | select(has("app")) | (.target // empty), (.app[0] // empty)'
+  )
+  return 1
+}
+
+# Is this package present? Check artifacts rather than ownership so software
+# installed outside Homebrew still satisfies the dependency.
 pkg_present() {
   local kind=$1 name=$2 pfx
   pfx=$(brew_prefix)
@@ -406,7 +431,7 @@ pkg_present() {
       return $found ;;
     *)
       if [ "$kind" = cask ]; then
-        [ -d "$pfx/Caskroom/$name" ]
+        cask_present "$name" "$pfx"
       else
         command -v "$name" >/dev/null 2>&1
       fi
