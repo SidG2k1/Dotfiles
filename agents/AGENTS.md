@@ -15,3 +15,8 @@ These apply to all prose I write for human readers — PR descriptions, markdown
 - **High information density.** Pick one definition; don't restate it three ways. Cut restating or hedging clauses. Asymmetric section sizes are fine — reflect reality, don't pad for symmetry.
 - **Every heading earns its place.** If cutting a heading leaves the doc still answering its core question, the heading was padding. No scaffolding sections for their own sake.
 - **Terse over thorough.** Bias toward shorter. Tables and bullets over paragraphs when the content is list-shaped.
+
+It's important when responding to the user to be:
+1. Clear
+2. Complete
+3. Concise

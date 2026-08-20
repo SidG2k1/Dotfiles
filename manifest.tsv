@@ -44,16 +44,24 @@ config/git/ignore	~/.config/git/ignore	link	Global gitignore. Git ships no defau
 agents/AGENTS.md	~/.agents/AGENTS.md	link	Canonical shared instructions. Portable statements only: machine-specific environment claims (which TeX engine, which model runtime, which GPU) belong in an untracked ~/.agents/AGENTS.local.md, because asserting a tool exists on a fresh machine sends agents down dead ends.
 agents/AGENTS.md	~/.claude/CLAUDE.md	link	Second symlink to the same file so Claude Code reads one source of truth. Point it at ~/.agents/AGENTS.md, not at $DOTFILES, so the repo can move.
 agents/AGENTS.md	~/.codex/AGENTS.md	link	Third symlink to the same file for Codex. Same indirection through ~/.agents/AGENTS.md.
+agents/SKILLS.md	~/.agents/SKILLS.md	link	Skills-system design doc: the two layers, the link recipes, and the frontmatter keys each tool honors. Absolute link, same shape as the skills themselves.
+agents/SKILLS.md	~/.claude/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
+agents/SKILLS.md	~/.codex/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
 agents/skills/anti-slop	~/.agents/skills/anti-slop	link	Personal skill: keep agent-authored code changes minimal, idiomatic, and within scope.
 agents/skills/anti-slop	~/.claude/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
+agents/skills/anti-slop	~/.codex/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/autopush	~/.agents/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
 agents/skills/autopush	~/.claude/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
+agents/skills/autopush	~/.codex/skills/autopush	link	Relative symlink ../../.agents/skills/autopush; keeps one copy of the skill.
 agents/skills/memdump	~/.agents/skills/memdump	link	Personal skill: checkpoint session context to a memory file before a context wipe.
 agents/skills/memdump	~/.claude/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
+agents/skills/memdump	~/.codex/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
 agents/skills/memload	~/.agents/skills/memload	link	Personal skill: reload a memory file and re-verify it against the codebase.
 agents/skills/memload	~/.claude/skills/memload	link	Relative symlink ../../.agents/skills/memload; keeps one copy of the skill.
+agents/skills/memload	~/.codex/skills/memload	link	Relative symlink ../../.agents/skills/memload; keeps one copy of the skill.
 agents/skills/pr_update	~/.agents/skills/pr_update	link	Personal skill: propose a PR description update via gh, never write without approval. Needs the gh CLI authenticated.
 agents/skills/pr_update	~/.claude/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
+agents/skills/pr_update	~/.codex/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
 agents/reference	~/.agents/reference	link	Directory symlink. AGENTS.md sends agents to ~/.agents/reference/transcription.md by absolute path, so the directory has to resolve - without this row that pointer is a dead end on every machine. Runbooks only: no machine state, no credentials.
 agents/claude/settings.json	~/.claude/settings.json	merge-json	Claude Code writes this file itself (plugin enable/disable, dismissed prompts, marketplace paths), so merge the tracked key subset with jq rather than linking. The statusLine command pipes through jq: without jq on PATH the status line is silently blank.
 agents/codex/config.toml	~/.codex/config.toml	never	Codex rewrites this file in place, adding installation-specific marketplace paths, MCP servers, and project trust. Linking or overwriting it drops that state. Treat the repo copy as a reference base and copy keys across by hand.

@@ -1,10 +1,11 @@
-# Starship config — two-line prompt: cwd, git branch/state, duration.
+# Starship config — two-line prompt: cwd, Kubernetes target, git branch/state, duration.
 
 command_timeout = 2000
 add_newline = false
 
 format = """
 $directory\
+${custom.kubernetes}\
 $git_branch\
 $git_status\
 $git_state\
@@ -24,6 +25,19 @@ truncation_length = 0
 # Inside a git repo, start the path at the repo root instead of at ~.
 truncate_to_repo  = true
 style             = "blue"
+
+[custom.kubernetes]
+# Starship's native module leaves an unset namespace blank even though Kubernetes uses "default".
+command = '''
+value=$(kubectl config view --minify --output 'jsonpath={.contexts[0].context.cluster}/{.contexts[0].context.namespace}' 2>/dev/null) || exit 1
+[ -n "$value" ] || exit 1
+case "$value" in */) value="${value}default";; esac
+printf '%s' "$value"
+'''
+when   = 'command -v kubectl >/dev/null 2>&1'
+symbol = "☸ "
+style  = "cyan"
+format = '[$symbol$output]($style) '
 
 [git_branch]
 style  = "yellow"

@@ -355,12 +355,20 @@ group_for() {
 # at the repo:
 #   * ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md point at ~/.agents/AGENTS.md so
 #     all three agents read one file and the repo can move.
-#   * ~/.claude/skills/<skill> is a RELATIVE ../../.agents/skills/<skill> link,
-#     so ~/.claude and ~/.agents resolve to the same SKILL.md.
+#   * ~/.claude/skills/<skill> and ~/.codex/skills/<skill> are RELATIVE
+#     ../../.agents/skills/<skill> links, so every tool's skills dir and
+#     ~/.agents resolve to the same SKILL.md.
+#   * each skills dir's README.md is a RELATIVE ../../.agents/SKILLS.md link.
+#     It must be matched before the <skill> rule below, which would otherwise
+#     derive ../../.agents/skills/README.md from the basename.
 link_value_for() {
 	local src_rel="$1" src_abs="$2" tgt="$3"
 	case "$tgt" in
-		"$HOME/.claude/skills/"*)
+		"$HOME/.claude/skills/README.md"|"$HOME/.codex/skills/README.md")
+			printf '../../.agents/SKILLS.md\n'
+			return 0
+			;;
+		"$HOME/.claude/skills/"*|"$HOME/.codex/skills/"*)
 			printf '../../.agents/skills/%s\n' "$(basename -- "$tgt")"
 			return 0
 			;;
@@ -738,7 +746,8 @@ phase_dirs() {
 		"$HOME/.vim/after/plugin" \
 		"$HOME/.agents/skills" \
 		"$HOME/.claude/skills" \
-		"$HOME/.codex"
+		"$HOME/.codex" \
+		"$HOME/.codex/skills"
 	do
 		if [ -d "$d" ]; then
 			ok "$(display_path "$d")"

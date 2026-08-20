@@ -74,6 +74,7 @@
 
 # ---- agents ----
 !/agents/AGENTS.md
+!/agents/SKILLS.md
 !/agents/claude/settings.json
 !/agents/codex/config.toml
 !/agents/reference/*
