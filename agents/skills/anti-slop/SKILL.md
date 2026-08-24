@@ -1,6 +1,6 @@
 ---
 name: anti-slop
-description: Use when implementing or reviewing code where agent-generated changes risk overengineering, unnecessary abstractions, excessive tests, diff bloat, dependency creep, scope creep, or non-idiomatic Python, Go, or frontend code.
+description: Use when implementing or reviewing code or docs where agent-generated changes risk overengineering, unnecessary abstractions, excessive tests, diff bloat, dependency creep, scope creep, doc rot, or non-idiomatic Python, Go, Rust, frontend, or Markdown output.
 ---
 
 # Anti-Slop Coding
@@ -48,7 +48,9 @@ Run the narrowest relevant existing formatter, linter, type checker, build, and 
 
 - **Python:** built-ins/stdlib first; functions/plain data before stateless classes; no broad `try/except` without meaningful handling.
 - **Go:** concrete types first; small consumer-side interfaces only when substitution is needed; no wrapper layers or goroutines without clear lifecycle/cancellation.
+- **Rust:** std and concrete owned types first; no traits, generics, lifetimes-juggling, or macros until a second implementation exists; follow the crate's existing error convention — no new error types or one-line wrappers around std calls; clone deliberately, not reflexively to silence the borrow checker; do not test what the type system or std already guarantees.
 - **Frontend:** semantic HTML, native controls, CSS, and browser APIs before JS/library machinery; avoid one-off component abstractions and mirrored state. Accessibility is not slop.
+- **Markdown/docs:** prose is for what the reader cannot get from the source of truth — point at code, `--help`, or upstream docs instead of restating facts (flags, limits, defaults) that rot; state each fact once; no scaffolding sections, speculative notes for hypothetical situations, or decorative formatting.
 
 ## Anti-slop review
 
@@ -60,6 +62,7 @@ After implementation, inspect the diff once for removable complexity:
 - **yagni** remove speculative abstraction/options/defensive paths;
 - **shrink** express the same behavior more simply without becoming cryptic;
 - **test-noise** remove redundant, trivial, implementation-coupled tests;
+- **rot** replace prose restating a source of truth (code, `--help`, git, upstream docs) with a pointer to it;
 - **dependency** remove unnecessary packages;
 - **scope** revert unrelated changes.
 
