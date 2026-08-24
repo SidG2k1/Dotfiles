@@ -47,6 +47,9 @@ agents/AGENTS.md	~/.codex/AGENTS.md	link	Third symlink to the same file for Code
 agents/SKILLS.md	~/.agents/SKILLS.md	link	Skills-system design doc: the two layers, the link recipes, and the frontmatter keys each tool honors. Absolute link, same shape as the skills themselves.
 agents/SKILLS.md	~/.claude/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
 agents/SKILLS.md	~/.codex/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
+agents/skills/agentish-to-english	~/.agents/skills/agentish-to-english	link	Personal skill: translate agent-generated prose into plain, direct English.
+agents/skills/agentish-to-english	~/.claude/skills/agentish-to-english	link	Relative symlink ../../.agents/skills/agentish-to-english; keeps one copy of the skill.
+agents/skills/agentish-to-english	~/.codex/skills/agentish-to-english	link	Relative symlink ../../.agents/skills/agentish-to-english; keeps one copy of the skill.
 agents/skills/anti-slop	~/.agents/skills/anti-slop	link	Personal skill: keep agent-authored code changes minimal, idiomatic, and within scope.
 agents/skills/anti-slop	~/.claude/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/anti-slop	~/.codex/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.

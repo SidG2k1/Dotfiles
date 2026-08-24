@@ -78,6 +78,7 @@
 !/agents/claude/settings.json
 !/agents/codex/config.toml
 !/agents/reference/*
+!/agents/skills/agentish-to-english/SKILL.md
 !/agents/skills/anti-slop/SKILL.md
 !/agents/skills/autopush/SKILL.md
 !/agents/skills/find-skills/SKILL.md
