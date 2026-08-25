@@ -72,24 +72,27 @@ jobs:
       # the gate while still failing on real defects (unquoted expansions that
       # break on spaces, misused test operators, unreachable code).
       # ---------------------------------------------------------------
-      - name: bash -n (install.sh, bin/*)
+      - name: bash -n (install.sh, bin/*, lib/*.sh, tests/*.sh)
         run: |
           set -euo pipefail
           status=0
           while IFS= read -r f; do
             [ -n "$f" ] || continue
             if bash -n "$f"; then echo "ok    $f"; else echo "FAIL  $f"; status=1; fi
-          done < <(git ls-files install.sh 'bin/*')
+          done < <(git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh')
           exit "$status"
 
-      - name: shellcheck (install.sh, bin/*)
+      - name: shellcheck (install.sh, bin/*, lib/*.sh, tests/*.sh)
         run: |
           set -euo pipefail
-          files=$(git ls-files install.sh 'bin/*')
+          files=$(git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh')
           if [ -z "$files" ]; then echo "no shell scripts tracked"; exit 0; fi
           # shellcheck reads each file's shebang to pick the dialect.
           # shellcheck disable=SC2086
           shellcheck --severity=warning --color=always $files
+
+      - name: Installer skips externally satisfied Brewfile entries
+        run: bash tests/install-brew-skips.sh
 
       # bin/* is installed by symlink and run from PATH; a non-executable mode
       # in the index means a fresh clone produces a script nobody can run.

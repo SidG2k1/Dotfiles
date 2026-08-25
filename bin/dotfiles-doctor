@@ -67,6 +67,12 @@ resolve() {
 SELF=$(resolve "$0") || { echo "dotfiles-doctor: cannot resolve \$0" >&2; exit 2; }
 DOTFILES=${DOTFILES:-$(dirname "$(dirname "$SELF")")}
 MANIFEST="$DOTFILES/manifest.tsv"
+BREW_DEPENDENCIES="$DOTFILES/lib/brew-dependencies.sh"
+[ -f "$BREW_DEPENDENCIES" ] || {
+  echo "dotfiles-doctor: dependency probes not found at $BREW_DEPENDENCIES" >&2
+  exit 2
+}
+. "$BREW_DEPENDENCIES"
 
 # Markers for the append-once strategy. Keep in sync with install.sh and with
 # the manifest note on config/ghostty/config.ghostty.
@@ -375,69 +381,6 @@ EOF
 # 2. Brewfile dependencies. "What breaks" comes from the Brewfile's own comment
 #    above each entry, so the two can never drift apart.
 # ---------------------------------------------------------------------------
-
-brew_prefix() {
-  if [ -n "${HOMEBREW_PREFIX:-}" ]; then
-    printf '%s' "$HOMEBREW_PREFIX"
-  elif command -v brew >/dev/null 2>&1; then
-    brew --prefix 2>/dev/null || printf '/opt/homebrew'
-  else
-    printf '/opt/homebrew'
-  fi
-}
-
-cask_present() {
-  local name=$1 pfx=$2 artifact
-  [ -d "$pfx/Caskroom/$name" ] && return 0
-  command -v brew >/dev/null 2>&1 || return 1
-  command -v jq >/dev/null 2>&1 || return 1
-
-  while IFS= read -r artifact; do
-    [ -n "$artifact" ] || continue
-    case $artifact in
-      /*)
-        [ -e "$artifact" ] && return 0
-        ;;
-      *)
-        if [ -e "/Applications/$artifact" ] || [ -e "$HOME/Applications/$artifact" ]; then
-          return 0
-        fi
-        ;;
-    esac
-  done < <(
-    HOMEBREW_NO_AUTO_UPDATE=1 brew info --cask --json=v2 "$name" 2>/dev/null |
-      jq -r '.casks[0].artifacts[]? | objects | select(has("app")) | (.target // empty), (.app[0] // empty)'
-  )
-  return 1
-}
-
-# Is this package present? Check artifacts rather than ownership so software
-# installed outside Homebrew still satisfies the dependency.
-pkg_present() {
-  local kind=$1 name=$2 pfx
-  pfx=$(brew_prefix)
-  case $name in
-    git-delta) command -v delta >/dev/null 2>&1 ;;
-    zsh-autosuggestions)
-      [ -f "$pfx/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] ;;
-    zsh-syntax-highlighting)
-      [ -f "$pfx/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] ;;
-    font-*)
-      local f found=1
-      for f in "$HOME/Library/Fonts"/*JetBrains*Nerd* /Library/Fonts/*JetBrains*Nerd* \
-               "$pfx/Caskroom/$name"; do
-        [ -e "$f" ] && found=0
-      done
-      return $found ;;
-    *)
-      if [ "$kind" = cask ]; then
-        cask_present "$name" "$pfx"
-      else
-        command -v "$name" >/dev/null 2>&1
-      fi
-      ;;
-  esac
-}
 
 # Pull "Without X, Y" out of the Brewfile comment when it is there - that
 # sentence is exactly "what breaks".

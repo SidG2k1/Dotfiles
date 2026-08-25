@@ -48,6 +48,7 @@ DOTFILES="$(cd -P "$(dirname -- "$SCRIPT_SRC")" && pwd)"
 MANIFEST="$DOTFILES/manifest.tsv"
 PLUGIN_LIST="$DOTFILES/vim/plugins.txt"
 BREWFILE="$DOTFILES/Brewfile"
+BREW_DEPENDENCIES="$DOTFILES/lib/brew-dependencies.sh"
 
 PATHOGEN_URL="https://raw.githubusercontent.com/tpope/vim-pathogen/master/autoload/pathogen.vim"
 
@@ -331,6 +332,8 @@ fi
 [ "$ONLY" = "all" ] && ONLY=""
 
 [ -f "$MANIFEST" ] || die "manifest.tsv not found at $MANIFEST - is this the repo root?"
+[ -f "$BREW_DEPENDENCIES" ] || die "dependency probes not found at $BREW_DEPENDENCIES"
+. "$BREW_DEPENDENCIES"
 
 # ------------------------------------------------------------------ strategies
 
@@ -759,6 +762,9 @@ phase_dirs() {
 }
 
 phase_brew() {
+	local brew_skip="${HOMEBREW_BUNDLE_BREW_SKIP:-}"
+	local cask_skip="${HOMEBREW_BUNDLE_CASK_SKIP:-}"
+	local kind name
 	heading "homebrew"
 	if ! command -v brew >/dev/null 2>&1; then
 		warn "brew not found - skipping 'brew bundle'. Nothing else in this install depends on it."
@@ -774,8 +780,28 @@ phase_brew() {
 		plan "brew bundle --file=$(display_path "$BREWFILE")"
 		return 0
 	fi
+	while IFS=$'\t' read -r kind name; do
+		[ -n "${name:-}" ] || continue
+		case "$kind" in
+			brew)
+				case " $brew_skip " in
+					*" $name "*) ;;
+					*) brew_skip="${brew_skip:+$brew_skip }$name" ;;
+				esac
+				;;
+			cask)
+				case " $cask_skip " in
+					*" $name "*) ;;
+					*) cask_skip="${cask_skip:+$cask_skip }$name" ;;
+				esac
+				;;
+		esac
+		status reuse "$C_DIM" "$kind $name (already available outside Homebrew)"
+	done < <(external_brewfile_entries "$BREWFILE")
 	printf '  running brew bundle (this can take a while)...\n'
-	if brew bundle --file="$BREWFILE" </dev/null; then
+	if HOMEBREW_BUNDLE_BREW_SKIP="$brew_skip" \
+		HOMEBREW_BUNDLE_CASK_SKIP="$cask_skip" \
+		brew bundle --file="$BREWFILE" </dev/null; then
 		changed "brew bundle completed"
 	else
 		fail "brew bundle reported errors" \

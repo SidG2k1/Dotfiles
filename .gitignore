@@ -45,9 +45,13 @@
 !/Brewfile
 !/Brewfile.optional
 !/install.sh
+!/lib/brew-dependencies.sh
 
 # ---- CI ----
 !/.github/workflows/ci.yml
+
+# ---- tests ----
+!/tests/install-brew-skips.sh
 
 # ---- scripts (installed to ~/bin, must stay mode 755) ----
 !/bin/dotfiles-doctor
