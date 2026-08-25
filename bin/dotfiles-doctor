@@ -72,6 +72,7 @@ BREW_DEPENDENCIES="$DOTFILES/lib/brew-dependencies.sh"
   echo "dotfiles-doctor: dependency probes not found at $BREW_DEPENDENCIES" >&2
   exit 2
 }
+# shellcheck source=../lib/brew-dependencies.sh
 . "$BREW_DEPENDENCIES"
 
 # Markers for the append-once strategy. Keep in sync with install.sh and with

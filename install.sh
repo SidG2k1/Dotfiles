@@ -333,6 +333,7 @@ fi
 
 [ -f "$MANIFEST" ] || die "manifest.tsv not found at $MANIFEST - is this the repo root?"
 [ -f "$BREW_DEPENDENCIES" ] || die "dependency probes not found at $BREW_DEPENDENCIES"
+# shellcheck source=lib/brew-dependencies.sh
 . "$BREW_DEPENDENCIES"
 
 # ------------------------------------------------------------------ strategies
