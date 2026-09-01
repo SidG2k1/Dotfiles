@@ -32,9 +32,6 @@ enabled = true
 [plugins."visualize@openai-bundled"]
 enabled = true
 
-[plugins."superpowers@openai-curated-remote"]
-enabled = false
-
 [plugins."browser@openai-bundled"]
 enabled = true
 

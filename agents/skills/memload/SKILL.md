@@ -2,7 +2,6 @@
 name: memload
 description: Read a session memory file and re-verify state against the codebase before continuing. Use when the user invokes /memload to resume from a prior /memdump.
 argument-hint: [memory-file-path]
-disable-model-invocation: true
 ---
 
 Resume from the memory file path supplied by the user. If no path was supplied, ask for one before continuing.

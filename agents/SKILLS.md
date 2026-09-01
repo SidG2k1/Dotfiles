@@ -14,7 +14,7 @@ The only difference is whether the real content sits in the public dotfiles repo
 
 ```
 ~/dotfiles/agents/skills/<name>/SKILL.md                                     # committed
-~/.agents/skills/<name>  -> /Users/sid.gupta/dotfiles/agents/skills/<name>      (absolute)
+~/.agents/skills/<name>  -> ~/dotfiles/agents/skills/<name>                     (absolute)
 ~/.claude/skills/<name>  -> ../../.agents/skills/<name>                         (relative)
 ~/.codex/skills/<name>   -> ../../.agents/skills/<name>                         (relative)
 ```
@@ -44,7 +44,7 @@ ln -s ../../.agents/skills.local/<name> ~/.codex/skills/<name>
 
 # portable
 mkdir -p ~/dotfiles/agents/skills/<name>
-ln -s /Users/sid.gupta/dotfiles/agents/skills/<name> ~/.agents/skills/<name>
+ln -s ~/dotfiles/agents/skills/<name> ~/.agents/skills/<name>
 ln -s ../../.agents/skills/<name> ~/.claude/skills/<name>
 ln -s ../../.agents/skills/<name> ~/.codex/skills/<name>
 ```
@@ -107,10 +107,18 @@ Leave it alone; personal skills go beside it, not inside it.
 **A skill missing from the model's list.** `disable-model-invocation: true` hides it from the listing
 the model sees while leaving `/<name>` working. Check frontmatter before debugging the link.
 
-**A skill in `~/dotfiles/agents/skills/` with no link anywhere.** Vendored third-party skills are
-deliberately unlinked — the skills CLI updates them from upstream and symlinking the vendored copy
-would pin a stale snapshot. `~/dotfiles/manifest.tsv` names them under *"NOT rows in this manifest, on
-purpose"*. Do not link them to close the gap.
+**A skill in `~/dotfiles/agents/skills/` with no link anywhere.** Vendored third-party skills
+(`gh-stack`, `find-skills`) are updated by the skills CLI into `~/.agents/skills/`, and the tool dirs
+link to *those* live copies — never to the dotfiles snapshots, which exist only as seeds and can go
+stale. `~/dotfiles/manifest.tsv` names them under *"NOT rows in this manifest, on purpose"*.
+
+**Forks of the superpowers plugin.** `brainstorming`, `systematic-debugging`,
+`verification-before-completion`, `writing-plans`, `executing-plans`, `subagent-driven-development`,
+`dispatching-parallel-agents`, and `receiving-code-review` are forks of superpowers 6.2.0
+(github.com/obra/superpowers), extracted so the plugin's per-session SessionStart hook could go.
+They are ordinary tracked personal skills — cross-references to dropped plugin skills were rewritten,
+`subagent-driven-development` bundles its own `code-reviewer.md`, and nothing updates them from
+upstream; they're maintained by hand.
 
 **No off-machine copy of the local layer.** Accepted, not overlooked: the alternative puts internal
 hostnames in a repo on an external account, and a skill here is a few KB — quicker to re-author than to

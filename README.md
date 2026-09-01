@@ -39,7 +39,7 @@ dotfiles repos silently eat a working machine's config.
 | `include` | repo file pulled in via the tool's own include directive; target stays user-owned | the target holds identity or tool-written blocks (`~/.gitconfig`, and its `[filter "lfs"]`) |
 | `append-once` | marker-delimited block (`# >>> dotfiles` … `# <<< dotfiles`), rewritten in place | the tool and the human both edit the same file (`~/.config/ghostty/config`) |
 | `merge-json` | `jq` merge of the tracked key subset | the app writes the file from its own UI (`~/.claude/settings.json`, VS Code, Docker) |
-| `never` | not installed; the note records who owns the target | another tool's installer owns it and regenerates it on upgrade (`~/.zprofile`, `~/.ssh/config`, `~/.profile`) |
+| `never` | not installed; the note records who owns the target | another tool's installer owns it and regenerates it on upgrade (`~/.zprofile`, `~/.profile`) |
 
 **`manifest.tsv` is the single source of truth** for which file goes where, under
 which strategy, and what breaks if the strategy is wrong. This README does not

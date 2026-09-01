@@ -54,7 +54,7 @@ agents/skills/anti-slop	~/.agents/skills/anti-slop	link	Personal skill: keep age
 agents/skills/anti-slop	~/.claude/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/anti-slop	~/.codex/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/autopush	~/.agents/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
-agents/skills/autopush	~/.claude/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
+agents/skills/autopush	~/.claude/skills/autopush	link	Relative symlink ../../.agents/skills/autopush; keeps one copy of the skill.
 agents/skills/autopush	~/.codex/skills/autopush	link	Relative symlink ../../.agents/skills/autopush; keeps one copy of the skill.
 agents/skills/memdump	~/.agents/skills/memdump	link	Personal skill: checkpoint session context to a memory file before a context wipe.
 agents/skills/memdump	~/.claude/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
@@ -65,6 +65,30 @@ agents/skills/memload	~/.codex/skills/memload	link	Relative symlink ../../.agent
 agents/skills/pr_update	~/.agents/skills/pr_update	link	Personal skill: propose a PR description update via gh, never write without approval. Needs the gh CLI authenticated.
 agents/skills/pr_update	~/.claude/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
 agents/skills/pr_update	~/.codex/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
+agents/skills/brainstorming	~/.agents/skills/brainstorming	link	Forked from superpowers 6.2.0: explore intent, requirements, and design before creative work. Its optional visual companion (scripts/server.cjs) needs node on PATH and silently no-ops without it.
+agents/skills/brainstorming	~/.claude/skills/brainstorming	link	Relative symlink ../../.agents/skills/brainstorming; keeps one copy of the skill.
+agents/skills/brainstorming	~/.codex/skills/brainstorming	link	Relative symlink ../../.agents/skills/brainstorming; keeps one copy of the skill.
+agents/skills/systematic-debugging	~/.agents/skills/systematic-debugging	link	Forked from superpowers 6.2.0: root-cause debugging process before proposing fixes.
+agents/skills/systematic-debugging	~/.claude/skills/systematic-debugging	link	Relative symlink ../../.agents/skills/systematic-debugging; keeps one copy of the skill.
+agents/skills/systematic-debugging	~/.codex/skills/systematic-debugging	link	Relative symlink ../../.agents/skills/systematic-debugging; keeps one copy of the skill.
+agents/skills/verification-before-completion	~/.agents/skills/verification-before-completion	link	Forked from superpowers 6.2.0: run verification and confirm output before claiming done.
+agents/skills/verification-before-completion	~/.claude/skills/verification-before-completion	link	Relative symlink ../../.agents/skills/verification-before-completion; keeps one copy of the skill.
+agents/skills/verification-before-completion	~/.codex/skills/verification-before-completion	link	Relative symlink ../../.agents/skills/verification-before-completion; keeps one copy of the skill.
+agents/skills/writing-plans	~/.agents/skills/writing-plans	link	Forked from superpowers 6.2.0: turn a spec into a bite-sized, testable implementation plan file.
+agents/skills/writing-plans	~/.claude/skills/writing-plans	link	Relative symlink ../../.agents/skills/writing-plans; keeps one copy of the skill.
+agents/skills/writing-plans	~/.codex/skills/writing-plans	link	Relative symlink ../../.agents/skills/writing-plans; keeps one copy of the skill.
+agents/skills/executing-plans	~/.agents/skills/executing-plans	link	Forked from superpowers 6.2.0: execute a written plan inline with review checkpoints.
+agents/skills/executing-plans	~/.claude/skills/executing-plans	link	Relative symlink ../../.agents/skills/executing-plans; keeps one copy of the skill.
+agents/skills/executing-plans	~/.codex/skills/executing-plans	link	Relative symlink ../../.agents/skills/executing-plans; keeps one copy of the skill.
+agents/skills/subagent-driven-development	~/.agents/skills/subagent-driven-development	link	Forked from superpowers 6.2.0: execute a plan via fresh subagent per task with two-stage review; bundles its own code-reviewer.md prompt.
+agents/skills/subagent-driven-development	~/.claude/skills/subagent-driven-development	link	Relative symlink ../../.agents/skills/subagent-driven-development; keeps one copy of the skill.
+agents/skills/subagent-driven-development	~/.codex/skills/subagent-driven-development	link	Relative symlink ../../.agents/skills/subagent-driven-development; keeps one copy of the skill.
+agents/skills/dispatching-parallel-agents	~/.agents/skills/dispatching-parallel-agents	link	Forked from superpowers 6.2.0: fan independent tasks out to parallel agents.
+agents/skills/dispatching-parallel-agents	~/.claude/skills/dispatching-parallel-agents	link	Relative symlink ../../.agents/skills/dispatching-parallel-agents; keeps one copy of the skill.
+agents/skills/dispatching-parallel-agents	~/.codex/skills/dispatching-parallel-agents	link	Relative symlink ../../.agents/skills/dispatching-parallel-agents; keeps one copy of the skill.
+agents/skills/receiving-code-review	~/.agents/skills/receiving-code-review	link	Forked from superpowers 6.2.0: verify review feedback technically before implementing it.
+agents/skills/receiving-code-review	~/.claude/skills/receiving-code-review	link	Relative symlink ../../.agents/skills/receiving-code-review; keeps one copy of the skill.
+agents/skills/receiving-code-review	~/.codex/skills/receiving-code-review	link	Relative symlink ../../.agents/skills/receiving-code-review; keeps one copy of the skill.
 agents/reference	~/.agents/reference	link	Directory symlink. AGENTS.md sends agents to ~/.agents/reference/transcription.md by absolute path, so the directory has to resolve - without this row that pointer is a dead end on every machine. Runbooks only: no machine state, no credentials.
 agents/claude/settings.json	~/.claude/settings.json	merge-json	Claude Code writes this file itself (plugin enable/disable, dismissed prompts, marketplace paths), so merge the tracked key subset with jq rather than linking. The statusLine command pipes through jq: without jq on PATH the status line is silently blank.
 agents/codex/config.toml	~/.codex/config.toml	never	Codex rewrites this file in place, adding installation-specific marketplace paths, MCP servers, and project trust. Linking or overwriting it drops that state. Treat the repo copy as a reference base and copy keys across by hand.
@@ -91,10 +115,12 @@ config/fish/conf.d/uv.env.fish	~/.config/fish/conf.d/uv.env.fish	never	Generated
 #                             last-selected agent list, dismissed prompts. It is
 #                             not a config to install, and it should not be
 #                             tracked at all.
-#   agents/skills/gh-stack    Vendored third-party skills. The skills CLI
-#   agents/skills/find-skills installs and updates these from their upstream
-#                             repos; symlinking the vendored copies would pin
-#                             them to a stale snapshot.
+#   ~/.agents/skills/gh-stack, find-skills, orca-linear, orchestration
+#                             Vendored third-party skills. The skills CLI
+#                             installs and updates them from upstream as real
+#                             dirs in ~/.agents/skills/ (not in this repo), and
+#                             install.sh's vendored-skills step links the tool
+#                             dirs (~/.claude, ~/.codex) at those live copies.
 #   vim/plugins.txt           Input to the installer, not an installed file: the
 #                             bundle list it fetches into ~/.vim/bundle.
 #   Brewfile, Brewfile.optional, README.md, setup.md, this file

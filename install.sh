@@ -120,7 +120,8 @@ vim-plugins are phases of this script with no manifest rows of their own:
   vim          ~/.vimrc, ~/.vim/templates  (+ vim-plugins unless skipped)
   terminal     starship, Ghostty
   git          ~/.gitconfig include, global gitignore
-  agents       AGENTS.md, personal skills, Claude Code settings
+  agents       AGENTS.md, personal skills, Claude Code settings, vendored
+               skills (skills CLI) + the gh-stack gh extension
   tools        gh, VS Code, yt-dlp, gnupg, docker
   scripts      ~/bin helpers
   never        print the rows this repo deliberately does not install, and why
@@ -933,6 +934,63 @@ phase_vim_plugins() {
 	return 0
 }
 
+# Vendored third-party skills: the skills CLI owns them as real directories in
+# ~/.agents/skills (manifest.tsv names them under "NOT rows"), updated with
+# `npx skills update`. This phase installs any that are missing, links them
+# into each tool's skills dir, and installs the gh extension the gh-stack
+# skill drives — the skill is inert without it.
+VENDORED_SKILLS="github/gh-stack@gh-stack vercel-labs/skills@find-skills"
+
+phase_agent_extras() {
+	heading "vendored skills + gh extension"
+	local spec name tool target
+	for spec in $VENDORED_SKILLS; do
+		name="${spec##*@}"
+		if [ -d "$HOME/.agents/skills/$name" ]; then
+			ok "vendored skill $name present"
+		elif ! command -v npx >/dev/null 2>&1; then
+			warn "npx not found; cannot install vendored skill $name"
+			manual "Install node, then run: npx -y skills add $spec -g --agent codex -y"
+			continue
+		elif [ "$DRY_RUN" -eq 1 ]; then
+			plan "npx -y skills add $spec -g --agent codex -y"
+			continue
+		elif npx -y skills add "$spec" -g --agent codex -y </dev/null; then
+			changed "vendored skill $name installed from $spec"
+		else
+			fail "skills CLI could not install $name" \
+				"Re-run by hand: npx -y skills add $spec -g --agent codex -y"
+			continue
+		fi
+		for tool in claude codex; do
+			target="$HOME/.$tool/skills/$name"
+			if [ -e "$target" ] || [ -L "$target" ]; then
+				ok "$(display_path "$target")"
+			elif [ "$DRY_RUN" -eq 1 ]; then
+				plan "ln -s ../../.agents/skills/$name $(display_path "$target")"
+			else
+				ln -s "../../.agents/skills/$name" "$target"
+				changed "$(display_path "$target") -> ../../.agents/skills/$name"
+			fi
+		done
+	done
+
+	if ! command -v gh >/dev/null 2>&1; then
+		warn "gh not found; skipping the gh-stack extension"
+		manual "Install gh (it is in this repo's Brewfile), then run: gh extension install github/gh-stack"
+	elif gh extension list 2>/dev/null | grep -q 'github/gh-stack'; then
+		ok "gh extension gh-stack"
+	elif [ "$DRY_RUN" -eq 1 ]; then
+		plan "gh extension install github/gh-stack"
+	elif gh extension install github/gh-stack </dev/null; then
+		changed "gh extension gh-stack installed"
+	else
+		warn "gh extension install github/gh-stack failed (gh not authenticated?)"
+		manual "Run 'gh auth login', then: gh extension install github/gh-stack"
+	fi
+	return 0
+}
+
 # ----------------------------------------------------------------------- main
 
 printf '%sdotfiles install%s  repo: %s\n' "$C_BOLD" "$C_RESET" "$(display_path "$DOTFILES")"
@@ -956,6 +1014,10 @@ elif want_group brew; then
 fi
 
 phase_manifest
+
+if want_group agents; then
+	phase_agent_extras
+fi
 
 if [ "$SKIP_VIM_PLUGINS" -eq 1 ]; then
 	heading "vim plugins"

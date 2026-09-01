@@ -466,16 +466,18 @@ check_skills() {
     fi
   done
 
-  # Skills live in ~/.agents but never reached ~/.claude (e.g. vendored ones).
+  # Skills live in ~/.agents but never reached ~/.claude or ~/.codex (e.g. vendored ones).
   if [ -d "$HOME/.agents/skills" ]; then
     for s in "$HOME/.agents/skills"/*; do
       [ -e "$s" ] || continue
       s=$(basename "$s")
       case " $(printf '%s ' $names) " in *" $s "*) continue ;; esac
-      if [ -e "$HOME/.claude/skills/$s/SKILL.md" ]; then
-        row PASS "skill $s" "unmanaged (vendored) skill, present in both trees"
+      if [ ! -e "$HOME/.claude/skills/$s/SKILL.md" ]; then
+        row WARN "skill $s" "unmanaged skill missing from ~/.claude/skills - Claude Code cannot see it"
+      elif [ ! -e "$HOME/.codex/skills/$s/SKILL.md" ]; then
+        row WARN "skill $s" "unmanaged skill missing from ~/.codex/skills - Codex cannot see it"
       else
-        row WARN "skill $s" "unmanaged skill in ~/.agents only - Claude Code cannot see it"
+        row PASS "skill $s" "unmanaged (vendored) skill, present in all three trees"
       fi
     done
   fi

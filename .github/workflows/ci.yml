@@ -94,6 +94,9 @@ jobs:
       - name: Installer skips externally satisfied Brewfile entries
         run: bash tests/install-brew-skips.sh
 
+      - name: Installer links vendored skills and installs the gh-stack extension
+        run: bash tests/install-agent-extras.sh
+
       # bin/* is installed by symlink and run from PATH; a non-executable mode
       # in the index means a fresh clone produces a script nobody can run.
       - name: bin/* is executable in the index

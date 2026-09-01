@@ -2,11 +2,12 @@ Use `uv` over `python3` when you can, use matplotlib/seaborn/yfinance and any ot
 Do not include AI-generation branding in PR descriptions or commits
 This file is shared across every machine, so it states no machine's contents. Which TeX engine, model runtime, GPU, or CLI happens to be installed belongs in `~/.agents/AGENTS.local.md` (untracked, per machine); check a tool exists before building on it rather than assuming.
 Audio transcription (local, on-device, mlx-whisper): runbook in `~/.agents/reference/transcription.md` (repo: `agents/reference/transcription.md`).
-When adding a personal skill under `~/.agents/skills/`, symlink that skill directory into `~/.claude/skills/` and verify both paths resolve to the same `SKILL.md`.
+When adding a personal skill under `~/.agents/skills/`, symlink that skill directory into both `~/.claude/skills/` and `~/.codex/skills/`, and verify all paths resolve to the same `SKILL.md` (recipes in `~/.agents/SKILLS.md`).
+When implementing or reviewing code changes, apply the `anti-slop` skill by default: smallest correct change that fits the codebase.
 
 ## Prose for Humans (PR descriptions, docs, comments, commit messages)
 
-These apply to all prose I write for human readers — PR descriptions, markdown docs, inline comments, commit messages, Slack/chat drafts.
+These apply to all prose I write for human readers — PR descriptions, markdown docs, inline comments, commit messages, Slack/chat drafts. Before delivering such prose, run it through the `agentish-to-english` skill.
 
 - **Don't duplicate source-of-truth.** If code, git log, GitHub, or a tracker owns a fact (region lists, PR tables, merged dates, status snapshots, "recently changed files"), don't restate it in prose — it will rot. Point at the SoT.
 - **Document the non-obvious.** Keep rationale, constraints, and cross-cutting invariants that a competent engineer cannot derive from reading the code. Cut anything they could. Test: *"could a reader figure this out from the code in five minutes?"* If yes, drop it.
