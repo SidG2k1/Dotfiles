@@ -15,8 +15,8 @@ brew bundle --file=~/dotfiles/Brewfile.optional     # per-feature extras; read i
 
 The required `Brewfile` is not listed here: `./install.sh` in step 2 runs
 `brew bundle` on it before it touches any config (`--skip-brew` opts out).
-`Brewfile.optional` is the part no script decides for you — it now also carries
-the Ghostty and VS Code casks, since this repo installs configs for both.
+`Brewfile.optional` is the part no script decides for you; it also carries the
+Ghostty and VS Code casks, since this repo installs configs for both.
 
 Homebrew's `shellenv` line goes in `~/.zprofile` or `~/.zshenv` **by hand** — the
 repo does not install `~/.zprofile`, because other tools' installers append to it
@@ -73,6 +73,12 @@ do code --install-extension "$extension"; done
   hand.
 - **MCP servers and app integrations**: re-add by signing in. Do not migrate
   cookie, session, or state files.
+- **GUI permission grants**: Ghostty (and any other terminal) needs
+  Accessibility and Automation; AltTab needs Accessibility plus Screen Recording
+  (step 5). Mos does nothing until launched and granted Accessibility, then
+  reverse scrolling is switched on in its own preferences, vertical and
+  horizontal separately. Its settings live in a plist that `cfprefsd` owns and
+  rewrites, so no tracked file can set them.
 
 ## 4. What must never enter this repo
 

@@ -118,8 +118,8 @@ vim-plugins are phases of this script with no manifest rows of their own:
   vim          ~/.vimrc, ~/.vim/templates  (+ vim-plugins unless skipped)
   terminal     starship, Ghostty
   git          ~/.gitconfig include, global gitignore
-  agents       AGENTS.md, personal skills, Claude Code settings, vendored
-               skills (skills CLI) + the gh-stack gh extension
+  agents       AGENTS.md, Claude Code settings, every skill in ~/.agents/skills
+               linked into ~/.claude and ~/.codex, the gh-stack gh extension
   tools        gh, VS Code, yt-dlp, gnupg, docker
   scripts      ~/bin helpers
   never        print the rows this repo deliberately does not install, and why
@@ -337,42 +337,16 @@ fi
 
 # ------------------------------------------------------------------ strategies
 
-# group_for <section header text> -> a short slug usable with --only.
-group_for() {
-	local raw
-	raw="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
-	case "$raw" in
-		shell*) printf 'shell\n' ;;
-		vim*) printf 'vim\n' ;;
-		prompt*|terminal*) printf 'terminal\n' ;;
-		git*) printf 'git\n' ;;
-		agents*) printf 'agents\n' ;;
-		per-tool*|tools*) printf 'tools\n' ;;
-		script*) printf 'scripts\n' ;;
-		deliberately*|never*) printf 'never\n' ;;
-		*) printf '%s\n' "$(printf '%s' "$raw" | tr -cs 'a-z0-9' '-')" ;;
-	esac
-}
-
-# The link value for a row. Two rows in the manifest deliberately do NOT point
-# at the repo:
+# The link value for a row. Some rows deliberately do NOT point at the repo:
 #   * ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md point at ~/.agents/AGENTS.md so
 #     all three agents read one file and the repo can move.
-#   * ~/.claude/skills/<skill> and ~/.codex/skills/<skill> are RELATIVE
-#     ../../.agents/skills/<skill> links, so every tool's skills dir and
-#     ~/.agents resolve to the same SKILL.md.
-#   * each skills dir's README.md is a RELATIVE ../../.agents/SKILLS.md link.
-#     It must be matched before the <skill> rule below, which would otherwise
-#     derive ../../.agents/skills/README.md from the basename.
+#   * each skills dir's README.md is a RELATIVE ../../.agents/SKILLS.md link,
+#     the same shape as the skill links phase_agent_extras writes.
 link_value_for() {
 	local src_rel="$1" src_abs="$2" tgt="$3"
 	case "$tgt" in
 		"$HOME/.claude/skills/README.md"|"$HOME/.codex/skills/README.md")
 			printf '../../.agents/SKILLS.md\n'
-			return 0
-			;;
-		"$HOME/.claude/skills/"*|"$HOME/.codex/skills/"*)
-			printf '../../.agents/skills/%s\n' "$(basename -- "$tgt")"
 			return 0
 			;;
 	esac
@@ -482,24 +456,14 @@ do_wrap() {
 # touch anything else, because ~/.gitconfig holds identity (user.email,
 # user.signingkey) and tool-written blocks like [filter "lfs"].
 gitconfig_has_include() {
-	local file="$1" want_abs="$2" line line_abs
+	local file="$1" want_abs="$2" line
 	[ -f "$file" ] || return 1
-	if command -v git >/dev/null 2>&1; then
-		# git parses both [include] spellings and any indentation.
-		while IFS= read -r line; do
-			[ -n "$line" ] || continue
-			case "$line" in
-				"~/"*) line_abs="$HOME/${line#\~/}" ;;
-				*) line_abs="$line" ;;
-			esac
-			[ "$line_abs" = "$want_abs" ] && return 0
-		done <<EOF
+	while IFS= read -r line; do
+		case "$line" in "~/"*) line="$HOME/${line#\~/}" ;; esac
+		[ "$line" = "$want_abs" ] && return 0
+	done <<EOF
 $(git config --file "$file" --get-all include.path 2>/dev/null || true)
 EOF
-	fi
-	# Fallback for an unparseable file: literal match on either spelling.
-	if grep -Fq "$want_abs" "$file"; then return 0; fi
-	if grep -Fq "$(display_path "$want_abs")" "$file"; then return 0; fi
 	return 1
 }
 
@@ -637,30 +601,11 @@ do_append_once() {
 # merge-json: the app writes this file itself, so merge the tracked key subset
 # instead of linking. The tracked subset is exactly the top-level keys present
 # in the repo file; the merge is recursive (jq's `*`), so nested keys the app
-# added survive and only tracked keys are overwritten.
-json_prune_filter() {
-	# Per-target removals of keys the repo file has deliberately dropped. Kept
-	# tiny and explicit: a recursive merge alone cannot delete anything, so a
-	# key the repo replaced would otherwise linger and warn forever.
-	local tgt="$1" src_abs="$2"
-	case "$tgt" in
-		*/.docker/daemon.json)
-			# builder.gc.defaultKeepStorage is deprecated in favour of
-			# builder.gc.policy. Drop the stale key only when the repo file no
-			# longer sets it, so Docker stops warning at startup.
-			if ! jq -e 'has("builder") and (.builder | has("gc")) and (.builder.gc | has("defaultKeepStorage"))' \
-				"$src_abs" >/dev/null 2>&1; then
-				printf 'if (.builder.gc? | type) == "object" then del(.builder.gc.defaultKeepStorage) else . end\n'
-				return 0
-			fi
-			;;
-	esac
-	printf '.\n'
-}
-
+# added survive and only tracked keys are overwritten. A merge cannot delete: a
+# key the repo drops lingers in the target until removed by hand.
 do_merge_json() {
 	local src_abs="$1" tgt="$2"
-	local prune desired base
+	local desired
 
 	if ! command -v jq >/dev/null 2>&1; then
 		fail "jq is required to merge $(display_path "$tgt") and is not on PATH" \
@@ -676,7 +621,6 @@ do_merge_json() {
 	ensure_parent "$tgt" || return 0
 	detach_repo_symlink "$tgt"
 
-	prune="$(json_prune_filter "$tgt" "$src_abs")"
 	desired="$(tmpfile)"
 
 	if [ -f "$tgt" ]; then
@@ -689,12 +633,7 @@ do_merge_json() {
 				"Nothing was written and nothing was removed. Most often this is JSONC: comments or trailing commas, which VS Code accepts and jq does not. Strip them (or move the file aside) and re-run."
 			return 0
 		fi
-		base="$(tmpfile)"
-		if ! jq "$prune" "$tgt" >"$base" 2>/dev/null; then
-			fail "could not pre-process $(display_path "$tgt") with jq"
-			return 0
-		fi
-		if ! jq -s '.[0] * .[1]' "$base" "$src_abs" >"$desired" 2>/dev/null; then
+		if ! jq -s '.[0] * .[1]' "$tgt" "$src_abs" >"$desired" 2>/dev/null; then
 			fail "jq merge failed for $(display_path "$tgt")"
 			return 0
 		fi
@@ -812,17 +751,16 @@ phase_brew() {
 
 phase_manifest() {
 	heading "manifest"
-	local group="general" src tgt strat note_text src_abs raw
+	local group="general" src tgt strat note_text src_abs
 
 	# Read the manifest on fd 3 so nothing inside the loop (git, curl, brew, jq)
 	# can swallow the rest of the file by reading stdin.
 	while IFS=$'\t' read -r src tgt strat note_text <&3 || [ -n "${src:-}" ]; do
-		# Section headers carry the group name used by --only.
+		# Section headers are the group names used by --only.
 		case "$src" in
 			'# ---- '*' ----'*)
-				raw="${src#\# ---- }"
-				raw="${raw%% ----*}"
-				group="$(group_for "$raw")"
+				group="${src#\# ---- }"
+				group="${group%% ----*}"
 				continue
 				;;
 			''|'#'*) continue ;;
@@ -884,12 +822,8 @@ phase_vim_plugins() {
 		repo="${repo%%#*}"
 		repo="$(printf '%s' "$repo" | tr -d '\r' | tr -d '[:space:]')"
 		[ -n "$repo" ] || continue
-		case "$repo" in
-			*/*) ;;
-			*) fail "vim/plugins.txt: '$repo' is not an owner/repo line"; continue ;;
-		esac
 		if printf '%s' "$repo" | grep -qv '^[A-Za-z0-9._-]\{1,\}/[A-Za-z0-9._-]\{1,\}$'; then
-			fail "vim/plugins.txt: refusing to clone suspicious entry '$repo'"
+			fail "vim/plugins.txt: '$repo' is not an owner/repo line"
 			continue
 		fi
 		dest="$bundle/${repo##*/}"
@@ -913,14 +847,15 @@ phase_vim_plugins() {
 
 # Vendored third-party skills: the skills CLI owns them as real directories in
 # ~/.agents/skills (manifest.tsv names them under "NOT rows"), updated with
-# `npx skills update`. This phase installs any that are missing, links them
-# into each tool's skills dir, and installs the gh extension the gh-stack
-# skill drives — the skill is inert without it.
+# `npx skills update`. This phase installs any that are missing, then links
+# every skill in ~/.agents/skills - vendored or from the manifest rows above -
+# into each tool's skills dir, and installs the gh extension the gh-stack skill
+# drives (the skill is inert without it).
 VENDORED_SKILLS="github/gh-stack@gh-stack vercel-labs/skills@find-skills"
 
 phase_agent_extras() {
-	heading "vendored skills + gh extension"
-	local spec name tool target
+	heading "agent skills + gh extension"
+	local spec name dir tool target
 	for spec in $VENDORED_SKILLS; do
 		name="${spec##*@}"
 		if [ -d "$HOME/.agents/skills/$name" ]; then
@@ -928,17 +863,20 @@ phase_agent_extras() {
 		elif ! command -v npx >/dev/null 2>&1; then
 			warn "npx not found; cannot install vendored skill $name"
 			manual "Install node, then run: npx -y skills add $spec -g --agent codex -y"
-			continue
 		elif [ "$DRY_RUN" -eq 1 ]; then
 			plan "npx -y skills add $spec -g --agent codex -y"
-			continue
 		elif npx -y skills add "$spec" -g --agent codex -y </dev/null; then
 			changed "vendored skill $name installed from $spec"
 		else
 			fail "skills CLI could not install $name" \
 				"Re-run by hand: npx -y skills add $spec -g --agent codex -y"
-			continue
 		fi
+	done
+
+	# Relative links, so ~/.agents and both tool dirs resolve to one SKILL.md.
+	for dir in "$HOME/.agents/skills"/*/; do
+		[ -d "$dir" ] || continue
+		name="$(basename -- "$dir")"
 		for tool in claude codex; do
 			target="$HOME/.$tool/skills/$name"
 			if [ -e "$target" ] || [ -L "$target" ]; then
@@ -1016,12 +954,7 @@ heading "still to do by hand"
 i=1
 say_step() { printf '  %d. %s\n' "$i" "$1"; i=$((i + 1)); }
 
-say_step "Identity: put [user] name and email in ~/.gitconfig.local (included by ~/.gitconfig, never tracked). The tracked gitconfig sets neither identity nor commit signing, so nothing here fails without them - add signing in the same file if you want it."
-say_step "Machine-local seams, all optional and all untracked: ~/.zshrc.local (PATH, work aliases), ~/.agents/AGENTS.local.md (claims about THIS machine's toolchain - which TeX engine, which runtime), ~/.vim/after/plugin/zz-local.vim (per-box vim overrides), ~/.ssh/config.local (real hostnames)."
-say_step "Files this repo deliberately does not install (see the 'never' rows above): add Homebrew's shellenv line to ~/.zprofile yourself, and copy keys from agents/codex/config.toml into ~/.codex/config.toml by hand - Codex rewrites that file and linking it drops its state."
-say_step "GUI permission grants no script can make: Ghostty and any terminal you use need Accessibility and Automation; AltTab needs Accessibility plus Screen Recording. Full walkthrough in setup.md."
-say_step "Fonts and casks installed by brew only appear in apps after a restart of that app; JetBrainsMono Nerd Font is what the starship glyphs and eza icons need."
-say_step "Mos (installed by Brewfile) does nothing until you launch it, grant it Accessibility, and turn on reverse scrolling in its own preferences window - vertical and horizontal are separate toggles. Its settings live in ~/Library/Preferences/com.caldis.Mos.plist, which cfprefsd owns and rewrites, so no tracked file in this repo can set them for you."
+say_step "Identity, auth, GUI permission grants and the other human-only steps: setup.md, section 3 onward."
 if [ ${#BACKED_UP[@]} -gt 0 ]; then
 	say_step "Review what was moved aside in $(display_path "$BACKUP_ROOT") and fold anything machine-specific into the matching .local seam. Nothing was deleted."
 fi

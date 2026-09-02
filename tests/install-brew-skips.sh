@@ -24,10 +24,8 @@ mkdir -p \
 	"$EXTERNAL_APP"
 
 cp "$REPO/install.sh" "$FIXTURE_REPO/install.sh"
-if [ -f "$REPO/lib/brew-dependencies.sh" ]; then
-	mkdir -p "$FIXTURE_REPO/lib"
-	cp "$REPO/lib/brew-dependencies.sh" "$FIXTURE_REPO/lib/brew-dependencies.sh"
-fi
+mkdir -p "$FIXTURE_REPO/lib"
+cp "$REPO/lib/brew-dependencies.sh" "$FIXTURE_REPO/lib/brew-dependencies.sh"
 
 printf '%s\n' \
 	'brew "external-tool"' \

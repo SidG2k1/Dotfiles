@@ -4,7 +4,7 @@
 #
 # Reads manifest.tsv and checks, per row, that the target was produced by the
 # strategy the manifest claims. Then checks the dependencies that are invisible
-# until they break: Brewfile formulae, vim plugins, the two skill trees
+# until they break: Brewfile formulae, vim plugins, the three skill trees
 # resolving to one file, and the eza non-TTY hang. Finally it scans tracked
 # files for identity leakage, because this repo is public.
 #
@@ -201,8 +201,6 @@ first_sentence() {
 # 1. Install strategies, driven by manifest.tsv
 # ---------------------------------------------------------------------------
 
-MANIFEST_SKILLS=
-
 check_install() {
   section "install strategies (manifest.tsv)"
 
@@ -237,16 +235,6 @@ check_install() {
       row FAIL "$strategy  $src" "manifest source does not exist in the repo"
       continue
     fi
-
-    # Remember the skills the manifest owns, for the skills section.
-    case $src in
-      agents/skills/*)
-        case $target in
-          "$HOME"/*|"~/.agents/skills/"*)
-            MANIFEST_SKILLS="$MANIFEST_SKILLS ${src#agents/skills/}" ;;
-        esac
-        ;;
-    esac
 
     case $strategy in
       link)
@@ -435,55 +423,39 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 3. Agent skills: ~/.agents/skills/<s>/SKILL.md and ~/.claude/skills/<s>/SKILL.md
-#    must be the same file, or the two agents read different instructions.
+# 3. Agent skills: ~/.agents/skills/<s>, ~/.claude/skills/<s> and
+#    ~/.codex/skills/<s> must resolve to one SKILL.md, or the agents read
+#    different instructions.
 # ---------------------------------------------------------------------------
 
 check_skills() {
-  section "agent skills (one SKILL.md per skill, two paths)"
+  section "agent skills (one SKILL.md per skill, three paths)"
 
-  local names s a b ra rb
-  names=$(printf '%s\n' $MANIFEST_SKILLS | sed '/^$/d' | sort -u)
-  if [ -z "$names" ] && [ -d "$DOTFILES/agents/skills" ]; then
-    names=$(cd "$DOTFILES/agents/skills" && ls -1 2>/dev/null)
-  fi
-
-  for s in $names; do
-    a="$HOME/.agents/skills/$s/SKILL.md"
-    b="$HOME/.claude/skills/$s/SKILL.md"
-    if [ ! -e "$a" ] && [ ! -e "$b" ]; then
-      row WARN "skill $s" "not installed in either ~/.agents or ~/.claude"
-      continue
-    fi
-    if [ ! -e "$a" ]; then row FAIL "skill $s" "missing ~/.agents/skills/$s/SKILL.md"; continue; fi
-    if [ ! -e "$b" ]; then row FAIL "skill $s" "missing ~/.claude/skills/$s/SKILL.md - Claude Code will not see this skill"; continue; fi
-    ra=$(resolve "$a" 2>/dev/null)
-    rb=$(resolve "$b" 2>/dev/null)
-    if [ "$ra" = "$rb" ]; then
-      case $ra in
-        "$(resolve "$DOTFILES")"/*) row PASS "skill $s" "both paths -> ${ra#"$(resolve "$DOTFILES")"/}" ;;
-        *) row WARN "skill $s" "both paths agree but resolve outside the repo: $ra" ;;
-      esac
-    else
-      row FAIL "skill $s" "two different files: $ra vs $rb - the agents disagree about this skill"
-    fi
+  local d s a b ra tool bad
+  # Tracked skills that never reached ~/.agents (install.sh links them there).
+  for d in "$DOTFILES/agents/skills"/*/; do
+    [ -d "$d" ] || continue
+    s=$(basename "$d")
+    [ -e "$HOME/.agents/skills/$s/SKILL.md" ] || row WARN "skill $s" "not installed in ~/.agents/skills"
   done
 
-  # Skills live in ~/.agents but never reached ~/.claude or ~/.codex (e.g. vendored ones).
-  if [ -d "$HOME/.agents/skills" ]; then
-    for s in "$HOME/.agents/skills"/*; do
-      [ -e "$s" ] || continue
-      s=$(basename "$s")
-      case " $(printf '%s ' $names) " in *" $s "*) continue ;; esac
-      if [ ! -e "$HOME/.claude/skills/$s/SKILL.md" ]; then
-        row WARN "skill $s" "unmanaged skill missing from ~/.claude/skills - Claude Code cannot see it"
-      elif [ ! -e "$HOME/.codex/skills/$s/SKILL.md" ]; then
-        row WARN "skill $s" "unmanaged skill missing from ~/.codex/skills - Codex cannot see it"
-      else
-        row PASS "skill $s" "unmanaged (vendored) skill, present in all three trees"
+  for a in "$HOME/.agents/skills"/*/SKILL.md; do
+    [ -e "$a" ] || continue
+    s=${a%/SKILL.md}; s=${s##*/}
+    ra=$(resolve "$a" 2>/dev/null)
+    bad=0
+    for tool in claude codex; do
+      b="$HOME/.$tool/skills/$s/SKILL.md"
+      if [ ! -e "$b" ]; then
+        row FAIL "skill $s" "missing ~/.$tool/skills/$s - $tool cannot see this skill"
+        bad=1
+      elif [ "$(resolve "$b" 2>/dev/null)" != "$ra" ]; then
+        row FAIL "skill $s" "~/.$tool/skills/$s is a different file: $(resolve "$b" 2>/dev/null) vs $ra"
+        bad=1
       fi
     done
-  fi
+    [ "$bad" -eq 0 ] && row PASS "skill $s" "~/.agents, ~/.claude, ~/.codex -> ${ra#"$HOME"/}"
+  done
 }
 
 # ---------------------------------------------------------------------------

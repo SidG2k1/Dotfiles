@@ -33,39 +33,19 @@ jobs:
     name: static checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # zsh is the one thing the runner does not have. shellcheck, jq, python3
       # and git are preinstalled.
       - name: Install zsh
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends zsh
 
-      - name: Show tool versions
-        run: |
-          zsh --version
-          shellcheck --version | head -2
-          jq --version
-          python3 --version
-
       # ---------------------------------------------------------------
       # zsh: parse-only. -n never executes, so no plugin, no eza and no
       # Homebrew prefix needs to exist on the runner.
       # ---------------------------------------------------------------
       - name: zsh -n (zshrc, zshenv, *.zsh)
-        run: |
-          set -euo pipefail
-          status=0
-          # zshenv first: it is the file every zsh reads, so a syntax error
-          # there breaks every shell on the machine, including agents and CI.
-          for f in zshenv zshrc; do
-            [ -f "$f" ] || { echo "MISSING $f"; status=1; continue; }
-            if zsh -n "$f"; then echo "ok    $f"; else echo "FAIL  $f"; status=1; fi
-          done
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            if zsh -n "$f"; then echo "ok    $f"; else echo "FAIL  $f"; status=1; fi
-          done < <(git ls-files '*.zsh')
-          exit "$status"
+        run: git ls-files zshenv zshrc '*.zsh' | xargs -t -n1 zsh -n
 
       # ---------------------------------------------------------------
       # bash: parse-only, then lint. severity=warning keeps style nits out of
@@ -73,23 +53,10 @@ jobs:
       # break on spaces, misused test operators, unreachable code).
       # ---------------------------------------------------------------
       - name: bash -n (install.sh, bin/*, lib/*.sh, tests/*.sh)
-        run: |
-          set -euo pipefail
-          status=0
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            if bash -n "$f"; then echo "ok    $f"; else echo "FAIL  $f"; status=1; fi
-          done < <(git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh')
-          exit "$status"
+        run: git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh' | xargs -t -n1 bash -n
 
       - name: shellcheck (install.sh, bin/*, lib/*.sh, tests/*.sh)
-        run: |
-          set -euo pipefail
-          files=$(git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh')
-          if [ -z "$files" ]; then echo "no shell scripts tracked"; exit 0; fi
-          # shellcheck reads each file's shebang to pick the dialect.
-          # shellcheck disable=SC2086
-          shellcheck --severity=warning --color=always $files
+        run: git ls-files install.sh 'bin/*' 'lib/*.sh' 'tests/*.sh' | xargs shellcheck --severity=warning --color=always
 
       - name: Installer skips externally satisfied Brewfile entries
         run: bash tests/install-brew-skips.sh
@@ -115,14 +82,7 @@ jobs:
       # unparseable tracked file makes the installer fail mid-run.
       # ---------------------------------------------------------------
       - name: jq -e . (every tracked .json)
-        run: |
-          set -euo pipefail
-          status=0
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            if jq -e . "$f" >/dev/null; then echo "ok    $f"; else echo "FAIL  $f"; status=1; fi
-          done < <(git ls-files '*.json')
-          exit "$status"
+        run: git ls-files '*.json' | xargs -t -n1 jq -e . >/dev/null
 
       # ---------------------------------------------------------------
       # manifest.tsv is the contract the installer and the doctor both read.
@@ -165,7 +125,8 @@ jobs:
                   errors.append(f"{n}: strategy {strategy!r} is not one of {sorted(STRATEGIES)}")
               if not src or src.startswith("/") or src.startswith("~"):
                   errors.append(f"{n}: source {src!r} must be a path relative to the repo root")
-              elif src not in tracked and src not in tracked_dirs:
+              # never rows have no tracked source: the first column is a label.
+              elif strategy != "never" and src not in tracked and src not in tracked_dirs:
                   if pathlib.Path(src).exists():
                       errors.append(f"{n}: source {src!r} exists but is NOT tracked by git - "
                                     f"it would be absent from a fresh clone")
@@ -237,14 +198,14 @@ jobs:
     steps:
       # fetch-depth: 0 makes every object available. It does NOT make the action
       # below look at them - see the explicit step after it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       # Incremental gate: annotates the diff on a push/PR. Free for public repos
       # and personal accounts; GITLEAKS_LICENSE is only needed for org-owned
       # private repos.
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

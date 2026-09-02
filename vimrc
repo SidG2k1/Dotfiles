@@ -1,22 +1,7 @@
-" vimrc - vim 8 with native packages. NOT self-contained; needs the plugins
-" below, loaded from ~/.vim/pack/bundle/start/ by vim itself (:help packages).
-"
-" REQUIRED EXTERNAL PLUGINS (deliberately not vendored in this repo):
-"   dense-analysis/ale           backs the g:ale_* settings and SR
-"   vim-airline/vim-airline      backs the g:airline_* settings
-"   ron89/thesaurus_query.vim    backs ;th
-"   tpope/vim-commentary         gc / gcc / gcap
-"   easymotion/vim-easymotion    <leader> motion jumps
-"   godlygeek/tabular            :Tabularize
-"   tpope/vim-fugitive           :Git, :Gdiffsplit, :Gblame
-"   airblade/vim-gitgutter       sign-column diff markers
-"   google/vim-jsonnet           jsonnet filetype/syntax/indent
-"
-" vim/plugins.txt is the authoritative list (with the reason for each and the
-" clone commands); install.sh fetches them. Nothing here hard-fails without
-" them - a missing package directory is simply not loaded, and the g:ale_* /
-" g:airline_* variables are inert when the plugins that read them are absent.
-"
+" vimrc - vim 8 with native packages (:help packages). NOT self-contained: the
+" plugins in vim/plugins.txt must be cloned into ~/.vim/pack/bundle/start/,
+" which install.sh does. Nothing here hard-fails without them - a missing
+" package is simply not loaded and the g:ale_* / g:airline_* settings sit unread.
 
 set nocompatible
 

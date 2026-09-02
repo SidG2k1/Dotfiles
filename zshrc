@@ -92,15 +92,15 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # ~/.nvm/nvm.sh - i.e. `node` would appear installed and do nothing.
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
   export NVM_DIR="$HOME/.nvm"
-  nvm() {
+  _nvm_load() {
     unset -f nvm node npm npx
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    \. "$NVM_DIR/nvm.sh"
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-    nvm "$@"
   }
-  node() { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; node "$@"; }
-  npm()  { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; npm "$@"; }
-  npx()  { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"; npx "$@"; }
+  nvm()  { _nvm_load; nvm "$@"; }
+  node() { _nvm_load; node "$@"; }
+  npm()  { _nvm_load; npm "$@"; }
+  npx()  { _nvm_load; npx "$@"; }
 fi
 
 # Google Cloud SDK - lazy load. The function is harmless when the SDK is absent:
@@ -138,14 +138,7 @@ fi
 # ============================================================================
 # ZOXIDE (smart cd)
 # ============================================================================
-_zoxide_cache="${HOME}/.zsh/.zoxide_init.zsh"
-if command -v zoxide >/dev/null; then
-  if [[ ! -f "$_zoxide_cache" ]] || [[ "$(command -v zoxide)" -nt "$_zoxide_cache" ]]; then
-    mkdir -p "${HOME}/.zsh"
-    zoxide init zsh > "$_zoxide_cache"
-  fi
-  source "$_zoxide_cache"
-fi
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 
 # ============================================================================
 # ALIASES

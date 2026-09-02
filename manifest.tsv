@@ -24,6 +24,8 @@
 #
 # Every install must degrade gracefully: a missing tool may cost a feature, it
 # may never break ls, cat, cd, git, or shell startup.
+#
+# Section headers (# ---- name ----) are the group names install.sh --only takes.
 
 
 # ---- shell ----
@@ -34,7 +36,7 @@ zshrc	~/.zshrc	wrap	~/.zshrc becomes a stub that sources $DOTFILES/zshrc, then ~
 vimrc	~/.vimrc	link	Repo owns the file. The plugins in vim/plugins.txt must be cloned into ~/.vim/pack/bundle/start/ (vim 8+ native packages); missing ones cost their features silently, nothing errors.
 vim/templates	~/.vim/templates	link	Directory symlink. The BufNewFile autocmds in vimrc read ~/.vim/templates/skeleton.* by absolute path, so the whole directory must resolve, not individual files.
 
-# ---- prompt / terminal ----
+# ---- terminal ----
 config/starship.toml	~/.config/starship.toml	link	Prompt config only. Nothing breaks when starship is absent because zshrc guards its init behind command -v. Provides the repo-root-relative path display (truncation_length=0 + truncate_to_repo=true) that the agent status lines also want.
 config/ghostty/config.ghostty	~/.config/ghostty/config	append-once	Both the tool and the human edit this file, so append a marker-delimited block (# >>> dotfiles managed block >>>) and rewrite only that region. IMPORTANT: ghostty loads BOTH ~/.config/ghostty/config and ~/.config/ghostty/config.ghostty, and config.ghostty is read LAST - verified by setting the same key in both, where config.ghostty won. Keep exactly one of them. A leftover config.ghostty silently overrides this managed block. Ghostty logs an error per unrecognized key, so only append keys the installed version accepts.
 
@@ -42,7 +44,7 @@ config/ghostty/config.ghostty	~/.config/ghostty/config	append-once	Both the tool
 gitconfig	~/.gitconfig	include	Add [include] path = $DOTFILES/gitconfig to a user-owned ~/.gitconfig, and keep identity in ~/.gitconfig.local (also included). A symlink here destroys the machine's user.email, user.signingkey, and any [filter "lfs"] block written by git-lfs install.
 config/git/ignore	~/.config/git/ignore	link	Global gitignore. Git ships no default file at this path, so a symlink cannot clobber user content.
 
-# ---- agents (shared instruction file + personal skills) ----
+# ---- agents ----
 agents/AGENTS.md	~/.agents/AGENTS.md	link	Canonical shared instructions. Portable statements only: machine-specific environment claims (which TeX engine, which model runtime, which GPU) belong in an untracked ~/.agents/AGENTS.local.md, because asserting a tool exists on a fresh machine sends agents down dead ends.
 agents/AGENTS.md	~/.claude/CLAUDE.md	link	Second symlink to the same file so Claude Code reads one source of truth. Point it at ~/.agents/AGENTS.md, not at $DOTFILES, so the repo can move.
 agents/AGENTS.md	~/.codex/AGENTS.md	link	Third symlink to the same file for Codex. Same indirection through ~/.agents/AGENTS.md.
@@ -50,52 +52,24 @@ agents/SKILLS.md	~/.agents/SKILLS.md	link	Skills-system design doc: the two laye
 agents/SKILLS.md	~/.claude/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
 agents/SKILLS.md	~/.codex/skills/README.md	link	Relative symlink ../../.agents/SKILLS.md; the doc sits in the skills dir it describes.
 agents/skills/agentish-to-english	~/.agents/skills/agentish-to-english	link	Personal skill: translate agent-generated prose into plain, direct English.
-agents/skills/agentish-to-english	~/.claude/skills/agentish-to-english	link	Relative symlink ../../.agents/skills/agentish-to-english; keeps one copy of the skill.
-agents/skills/agentish-to-english	~/.codex/skills/agentish-to-english	link	Relative symlink ../../.agents/skills/agentish-to-english; keeps one copy of the skill.
 agents/skills/anti-slop	~/.agents/skills/anti-slop	link	Personal skill: keep agent-authored code changes minimal, idiomatic, and within scope.
-agents/skills/anti-slop	~/.claude/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
-agents/skills/anti-slop	~/.codex/skills/anti-slop	link	Relative symlink ../../.agents/skills/anti-slop; keeps one copy of the skill.
 agents/skills/autopush	~/.agents/skills/autopush	link	Personal skill: stage selectively, commit, push, refresh the PR body. Commit signing is whatever the machine configures in ~/.gitconfig.local; this repo does not set it.
-agents/skills/autopush	~/.claude/skills/autopush	link	Relative symlink ../../.agents/skills/autopush; keeps one copy of the skill.
-agents/skills/autopush	~/.codex/skills/autopush	link	Relative symlink ../../.agents/skills/autopush; keeps one copy of the skill.
 agents/skills/memdump	~/.agents/skills/memdump	link	Personal skill: checkpoint session context to a memory file before a context wipe.
-agents/skills/memdump	~/.claude/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
-agents/skills/memdump	~/.codex/skills/memdump	link	Relative symlink ../../.agents/skills/memdump; keeps one copy of the skill.
 agents/skills/memload	~/.agents/skills/memload	link	Personal skill: reload a memory file and re-verify it against the codebase.
-agents/skills/memload	~/.claude/skills/memload	link	Relative symlink ../../.agents/skills/memload; keeps one copy of the skill.
-agents/skills/memload	~/.codex/skills/memload	link	Relative symlink ../../.agents/skills/memload; keeps one copy of the skill.
 agents/skills/pr_update	~/.agents/skills/pr_update	link	Personal skill: propose a PR description update via gh, never write without approval. Needs the gh CLI authenticated.
-agents/skills/pr_update	~/.claude/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
-agents/skills/pr_update	~/.codex/skills/pr_update	link	Relative symlink ../../.agents/skills/pr_update; keeps one copy of the skill.
 agents/skills/brainstorming	~/.agents/skills/brainstorming	link	Forked from superpowers 6.2.0: explore intent, requirements, and design before creative work. Its optional visual companion (scripts/server.cjs) needs node on PATH and silently no-ops without it.
-agents/skills/brainstorming	~/.claude/skills/brainstorming	link	Relative symlink ../../.agents/skills/brainstorming; keeps one copy of the skill.
-agents/skills/brainstorming	~/.codex/skills/brainstorming	link	Relative symlink ../../.agents/skills/brainstorming; keeps one copy of the skill.
 agents/skills/systematic-debugging	~/.agents/skills/systematic-debugging	link	Forked from superpowers 6.2.0: root-cause debugging process before proposing fixes.
-agents/skills/systematic-debugging	~/.claude/skills/systematic-debugging	link	Relative symlink ../../.agents/skills/systematic-debugging; keeps one copy of the skill.
-agents/skills/systematic-debugging	~/.codex/skills/systematic-debugging	link	Relative symlink ../../.agents/skills/systematic-debugging; keeps one copy of the skill.
 agents/skills/verification-before-completion	~/.agents/skills/verification-before-completion	link	Forked from superpowers 6.2.0: run verification and confirm output before claiming done.
-agents/skills/verification-before-completion	~/.claude/skills/verification-before-completion	link	Relative symlink ../../.agents/skills/verification-before-completion; keeps one copy of the skill.
-agents/skills/verification-before-completion	~/.codex/skills/verification-before-completion	link	Relative symlink ../../.agents/skills/verification-before-completion; keeps one copy of the skill.
 agents/skills/writing-plans	~/.agents/skills/writing-plans	link	Forked from superpowers 6.2.0: turn a spec into a bite-sized, testable implementation plan file.
-agents/skills/writing-plans	~/.claude/skills/writing-plans	link	Relative symlink ../../.agents/skills/writing-plans; keeps one copy of the skill.
-agents/skills/writing-plans	~/.codex/skills/writing-plans	link	Relative symlink ../../.agents/skills/writing-plans; keeps one copy of the skill.
 agents/skills/executing-plans	~/.agents/skills/executing-plans	link	Forked from superpowers 6.2.0: execute a written plan inline with review checkpoints.
-agents/skills/executing-plans	~/.claude/skills/executing-plans	link	Relative symlink ../../.agents/skills/executing-plans; keeps one copy of the skill.
-agents/skills/executing-plans	~/.codex/skills/executing-plans	link	Relative symlink ../../.agents/skills/executing-plans; keeps one copy of the skill.
 agents/skills/subagent-driven-development	~/.agents/skills/subagent-driven-development	link	Forked from superpowers 6.2.0: execute a plan via fresh subagent per task with two-stage review; bundles its own code-reviewer.md prompt.
-agents/skills/subagent-driven-development	~/.claude/skills/subagent-driven-development	link	Relative symlink ../../.agents/skills/subagent-driven-development; keeps one copy of the skill.
-agents/skills/subagent-driven-development	~/.codex/skills/subagent-driven-development	link	Relative symlink ../../.agents/skills/subagent-driven-development; keeps one copy of the skill.
 agents/skills/dispatching-parallel-agents	~/.agents/skills/dispatching-parallel-agents	link	Forked from superpowers 6.2.0: fan independent tasks out to parallel agents.
-agents/skills/dispatching-parallel-agents	~/.claude/skills/dispatching-parallel-agents	link	Relative symlink ../../.agents/skills/dispatching-parallel-agents; keeps one copy of the skill.
-agents/skills/dispatching-parallel-agents	~/.codex/skills/dispatching-parallel-agents	link	Relative symlink ../../.agents/skills/dispatching-parallel-agents; keeps one copy of the skill.
 agents/skills/receiving-code-review	~/.agents/skills/receiving-code-review	link	Forked from superpowers 6.2.0: verify review feedback technically before implementing it.
-agents/skills/receiving-code-review	~/.claude/skills/receiving-code-review	link	Relative symlink ../../.agents/skills/receiving-code-review; keeps one copy of the skill.
-agents/skills/receiving-code-review	~/.codex/skills/receiving-code-review	link	Relative symlink ../../.agents/skills/receiving-code-review; keeps one copy of the skill.
 agents/reference	~/.agents/reference	link	Directory symlink. AGENTS.md sends agents to ~/.agents/reference/transcription.md by absolute path, so the directory has to resolve - without this row that pointer is a dead end on every machine. Runbooks only: no machine state, no credentials.
 agents/claude/settings.json	~/.claude/settings.json	merge-json	Claude Code writes this file itself (plugin enable/disable, dismissed prompts, marketplace paths), so merge the tracked key subset with jq rather than linking. The statusLine command pipes through jq: without jq on PATH the status line is silently blank.
 agents/codex/config.toml	~/.codex/config.toml	never	Codex rewrites this file in place, adding installation-specific marketplace paths, MCP servers, and project trust. Linking or overwriting it drops that state. Treat the repo copy as a reference base and copy keys across by hand.
 
-# ---- per-tool config ----
+# ---- tools ----
 config/gh/config.yml	~/.config/gh/config.yml	link	gh rewrites this file on `gh config set` and on schema migrations, so with a symlink those edits land in the repo working tree - visible in git status, never lost. Credentials stay in the sibling hosts.yml, which is gitignored and never installed.
 config/vscode/settings.json	~/Library/Application Support/Code/User/settings.json	merge-json	VS Code writes this file from its own settings UI and extensions add keys to it. A symlink would let the UI edit the repo and reformat or drop keys, so jq-merge the tracked subset instead.
 config/yt-dlp/config	~/.config/yt-dlp/config	link	yt-dlp never writes its own config file. The options assume ffmpeg and a node JS runtime; a missing one fails an individual download rather than the shell. Only meaningful with yt-dlp installed (Brewfile.optional).
@@ -106,7 +80,7 @@ config/docker/daemon.json	~/.docker/daemon.json	merge-json	Docker Desktop rewrit
 bin/dotfiles-doctor	~/bin/dotfiles-doctor	link	zshrc puts ~/bin at the front of PATH, and the script resolves its own symlink chain back to the clone, so the copy on PATH always audits this checkout. It writes nothing to the machine or the repo. git is needed to enumerate tracked files for the leak scan; jq only to verify the merge-json rows.
 bin/rebuild-alttab	~/bin/rebuild-alttab	link	zshrc puts ~/bin at the front of PATH. Self-contained bash; override the checkout location with ALTTAB_SRC. Needs full Xcode selected, not just the Command Line Tools.
 
-# ---- deliberately not installed ----
+# ---- never ----
 zprofile	~/.zprofile	never	On a real machine this target is owned by other tools' installers - Homebrew shellenv, container and VM shell hooks, toolchain env snippets - which append to it and rewrite it on upgrade. Overwriting silently removes working integrations. Add the brew shellenv line by hand, or keep it in ~/.zshenv.
 profile	~/.profile	never	Same ownership problem: installer-generated env hooks live here (the uv / rust-toolchain `. $HOME/.local/bin/env` line is exactly one of them) and are regenerated on upgrade. Overwriting silently removes working integrations.
 config/fish/conf.d/uv.env.fish	~/.config/fish/conf.d/uv.env.fish	never	Generated by uv's own installer alongside ~/.local/bin/env.fish and recreated on upgrade. Rerun the uv installer instead of linking; no copy is tracked here (a tracked copy of installer output only rots).
@@ -117,12 +91,14 @@ config/fish/conf.d/uv.env.fish	~/.config/fish/conf.d/uv.env.fish	never	Generated
 #                             last-selected agent list, dismissed prompts. It is
 #                             not a config to install, and it should not be
 #                             tracked at all.
+#   ~/.claude/skills/<name>, ~/.codex/skills/<name>
+#                             install.sh links every directory under
+#                             ~/.agents/skills/ into both tool dirs, so each
+#                             personal skill needs only its ~/.agents row above.
 #   ~/.agents/skills/gh-stack, find-skills, orca-linear, orchestration
 #                             Vendored third-party skills. The skills CLI
 #                             installs and updates them from upstream as real
-#                             dirs in ~/.agents/skills/ (not in this repo), and
-#                             install.sh's vendored-skills step links the tool
-#                             dirs (~/.claude, ~/.codex) at those live copies.
+#                             dirs in ~/.agents/skills/ (not in this repo).
 #   vim/plugins.txt           Input to the installer, not an installed file: the
 #                             plugin list it clones into ~/.vim/pack/bundle/start.
 #   Brewfile, Brewfile.optional, README.md, setup.md, this file

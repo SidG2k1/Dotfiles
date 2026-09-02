@@ -57,8 +57,8 @@ Portable takes two more steps, because dotfiles tracks by allowlist and installs
 
 1. a `!/agents/skills/<name>/SKILL.md` line in `~/dotfiles/.gitignore` — without it `git add` refuses
    and `git status` stays silent, so the skill is live here and backed up nowhere
-2. three rows in `~/dotfiles/manifest.tsv`, one per link target — what `install.sh` replays to rebuild
-   the links on a new machine
+2. one row in `~/dotfiles/manifest.tsv` for the `~/.agents/skills/<name>` link; `install.sh` links
+   everything under `~/.agents/skills/` into both tool dirs itself
 
 Skip either and the skill works on this machine and vanishes on the next.
 

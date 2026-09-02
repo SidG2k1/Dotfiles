@@ -95,20 +95,10 @@ Tectonic is installed for latex.
 ## External dependencies
 
 `Brewfile` is annotated per package with what it backs and what degrades without
-it; `Brewfile.optional` is the per-feature extras. The table below is only the
-subset whose absence is *invisible until it breaks something you did not connect
-to a missing package*.
-
-| Dependency | Needed by | Breaks without it |
-| --- | --- | --- |
-| `jq` | Claude Code `statusLine` command; every `merge-json` install | the status line silently drops the model name (the command guards on `jq` and still prints the directory) — no error anywhere; `merge-json` installs refuse to run |
-| `delta` (formula `git-delta`) | `gitconfig` `core.pager` + `interactive.diffFilter` | **every** `git diff`, `git show`, `git log -p`, `git add -p` errors out |
-| `vim/plugins.txt` plugins | vim's native package loading of `~/.vim/pack/bundle/start/*` (`:help packages`) | nothing loudly — vim still starts. Instead ALE linting, the airline statusline, `;th`, `gc`, easymotion, `:Tabularize`, fugitive, gitgutter, and jsonnet support are all **silently inert**. Plugins are third-party checkouts and deliberately not vendored; `vim/plugins.txt` records the nine vimrc expects, with the clone commands in its header |
-| `eza`, `bat` | the `ls`/`la`/`ll`/`lt` and `cat` aliases; both fzf previews | the aliases fail. `eza` also needs the `~/.zshenv` guard: from v0.23 it reads stdin for paths when stdout is not a TTY and **hangs forever** with no path argument, which is why that guard cannot live in `.zshrc` (agent, CI, and `$(…)` shells never source it) |
-| Nerd Font | starship glyphs, git status symbols, eza icons | those positions render as tofu boxes |
-
-`fzf`, `zoxide`, `starship`, `direnv`, and `ranger` are all guarded behind
-`command -v`; absent, you lose the feature and nothing else.
+it; `Brewfile.optional` is the per-feature extras; `vim/plugins.txt` is the same
+for vim. `bin/dotfiles-doctor` reports what is missing, and the troubleshooting
+table in `setup.md` covers the failures that do not name their cause — a vim
+whose plugin features are silently inert, or `eza` hanging in a non-TTY shell.
 
 ## Safety
 

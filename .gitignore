@@ -130,13 +130,8 @@
 # matching pattern wins and they override any `!` re-include above.
 # ---------------------------------------------------------------------------
 
-# Generated machine state, not configuration: install timestamps, the
-# last-selected agent list, dismissed prompts. It changes on its own and it
-# describes one machine, so it does not belong in a portable repo.
-# Untracked as of this commit (`git rm --cached agents/skill-lock.json`); the
-# working file is left in place because the skills CLI owns it. Note it is still
-# reachable in history (blob 2c99d90, commit 01e4c6e) - this pattern stops future leaks, it does not
-# retract the old blob. Rewriting history is a force-push and is out of scope.
+# Generated machine state owned by the skills CLI (install timestamps, the
+# last-selected agent list, dismissed prompts), not configuration.
 /agents/skill-lock.json
 
 # Credentials and machine-local overrides
