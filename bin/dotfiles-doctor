@@ -4,7 +4,7 @@
 #
 # Reads manifest.tsv and checks, per row, that the target was produced by the
 # strategy the manifest claims. Then checks the dependencies that are invisible
-# until they break: Brewfile formulae, pathogen bundles, the two skill trees
+# until they break: Brewfile formulae, vim plugins, the two skill trees
 # resolving to one file, and the eza non-TTY hang. Finally it scans tracked
 # files for identity leakage, because this repo is public.
 #
@@ -230,7 +230,10 @@ check_install() {
         ;;
     esac
 
-    if [ ! -e "$abs" ]; then
+    # never rows have no tracked source: the first column is just a label for
+    # the target, and keeping a repo copy of a file we refuse to install would
+    # only rot.
+    if [ "$strategy" != never ] && [ ! -e "$abs" ]; then
       row FAIL "$strategy  $src" "manifest source does not exist in the repo"
       continue
     fi
@@ -484,30 +487,23 @@ check_skills() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. vim: pathogen plus every bundle vimrc expects
+# 4. vim: every native package vimrc expects
 # ---------------------------------------------------------------------------
 
 check_vim() {
-  section "vim (pathogen + vim/plugins.txt)"
-
-  local pg="$HOME/.vim/autoload/pathogen.vim"
-  local uses_pathogen=1
-  [ -f "$DOTFILES/vimrc" ] && grep -q 'pathogen#infect' "$DOTFILES/vimrc" && uses_pathogen=0
-
-  if [ "$uses_pathogen" -ne 0 ]; then
-    row SKIP "vim   pathogen" "vimrc does not call pathogen#infect()"
-    return
-  fi
-
-  if [ -f "$pg" ]; then
-    row PASS "vim   pathogen" "~/.vim/autoload/pathogen.vim present"
-  else
-    row FAIL "vim   pathogen" "absent, but vimrc calls pathogen#infect() - vim errors on every launch"
-  fi
+  section "vim (native packages + vim/plugins.txt)"
 
   local list="$DOTFILES/vim/plugins.txt" repo dest
+
+  # A leftover pathogen setup means the plugins live in ~/.vim/bundle, which
+  # native-package vim never reads - everything below would WARN individually,
+  # but the fix is one migration, so say that once.
+  if [ -d "$HOME/.vim/bundle" ]; then
+    row WARN "vim   ~/.vim/bundle" "pre-native-packages leftover - move its contents to ~/.vim/pack/bundle/start/ and delete ~/.vim/autoload/pathogen.vim"
+  fi
+
   if [ ! -f "$list" ]; then
-    row WARN "vim   plugins.txt" "not found - cannot check bundles"
+    row WARN "vim   plugins.txt" "not found - cannot check plugins"
     return
   fi
 
@@ -515,11 +511,11 @@ check_vim() {
     repo=${repo%%#*}
     repo=$(printf '%s' "$repo" | tr -d '[:space:]')
     [ -n "$repo" ] || continue
-    dest="$HOME/.vim/bundle/${repo##*/}"
+    dest="$HOME/.vim/pack/bundle/start/${repo##*/}"
     if [ -d "$dest" ] && [ -n "$(ls -A "$dest" 2>/dev/null)" ]; then
       row PASS "vim   ${repo##*/}" "cloned"
     elif [ -d "$dest" ]; then
-      row FAIL "vim   ${repo##*/}" "~/.vim/bundle/${repo##*/} exists but is empty (interrupted clone)"
+      row FAIL "vim   ${repo##*/}" "~/.vim/pack/bundle/start/${repo##*/} exists but is empty (interrupted clone)"
     else
       row WARN "vim   ${repo##*/}" "not cloned from $repo - the vimrc settings behind it silently do nothing"
     fi

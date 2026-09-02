@@ -117,6 +117,15 @@ gcloud() {
 # FZF
 # ============================================================================
 export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
+# fd walks gitignore-aware and skips .git; fzf's built-in find walk crawls
+# everything. Same $+commands test as the eza aliases below, and for the same
+# reason. --hidden so dotfiles are findable; .git excluded explicitly because
+# --hidden would otherwise surface it.
+if (( $+commands[fd] )); then
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+fi
 # Previews are opt-in per tool: an fzf preview command that is not installed
 # leaves a blank pane with an error in it on every keystroke.
 if (( $+commands[bat] )); then
@@ -144,8 +153,6 @@ fi
 alias o='open'
 alias clr='clear'
 alias v='vim'
-alias p='python3'
-alias python='python3'
 alias r='ranger'
 
 # Modern CLI replacements.
@@ -173,7 +180,6 @@ fi
 # bash5: brew's modern bash, not the 3.2 in /bin. The -n test matters - with an
 # empty prefix the path would collapse to /bin/bash, which exists and is 3.2.
 [[ -n "$HOMEBREW_PREFIX" && -x "$HOMEBREW_PREFIX/bin/bash" ]] && alias bash5="$HOMEBREW_PREFIX/bin/bash"
-alias g++14="g++ -std=c++14 -Wall -g"
 alias fsz='du -sh '
 alias ssh='ssh -o VisualHostKey=yes'
 alias symcrypt='gpg -c --no-symkey-cache'
@@ -285,6 +291,15 @@ add-zsh-hook preexec _beam_cursor_preexec
 # ============================================================================
 command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 command -v fzf >/dev/null && source <(fzf --zsh)
+# After fzf on purpose: atuin takes Ctrl-R over from fzf's integration (Ctrl-T
+# and Alt-C stay fzf's). Absent, Ctrl-R stays on fzf.
+if command -v atuin >/dev/null; then
+  eval "$(atuin init zsh)"
+  # atuin binds Ctrl-R in viins only (vicmd gets / and k, vim-style), which
+  # leaves fzf's vicmd Ctrl-R in place - one search in insert mode, another in
+  # normal mode. Bind atuin's own vicmd widget so Ctrl-R is atuin in both.
+  bindkey -M vicmd '^r' atuin-search-vicmd
+fi
 
 # ============================================================================
 # ZSH PLUGINS (brew-installed) — KEEP LAST

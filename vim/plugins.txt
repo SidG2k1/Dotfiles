@@ -1,25 +1,20 @@
-# vim/plugins.txt - the pathogen bundles vimrc requires.
+# vim/plugins.txt - the plugins vimrc requires, as vim native packages.
 #
-# One `owner/repo` per line; '#' starts a comment. vimrc calls
-# execute pathogen#infect() on line 6, which errors on EVERY vim launch if
-# pathogen is missing, and each plugin below backs a specific vimrc setting or
-# mapping that silently does nothing without it.
+# One `owner/repo` per line; '#' starts a comment. Vim 8+ loads everything
+# under ~/.vim/pack/bundle/start/ by itself (:help packages) - no plugin
+# manager. Each plugin below backs a specific vimrc setting or mapping that
+# silently does nothing without it.
 #
-# Pathogen itself is NOT a bundle: it is a single autoload file fetched to
-# ~/.vim/autoload/pathogen.vim, which is what makes ~/.vim/bundle/* loadable.
-#
-#   mkdir -p ~/.vim/autoload ~/.vim/bundle
-#   curl -fLo ~/.vim/autoload/pathogen.vim \
-#     https://raw.githubusercontent.com/tpope/vim-pathogen/master/autoload/pathogen.vim
-#
-# Then clone each line below into ~/.vim/bundle/<repo>:
+# Clone each line below into ~/.vim/pack/bundle/start/<repo>:
 #
 #   grep -v '^[[:space:]]*\(#\|$\)' vim/plugins.txt | while read -r repo; do
-#     dest="$HOME/.vim/bundle/${repo##*/}"
+#     dest="$HOME/.vim/pack/bundle/start/${repo##*/}"
 #     [ -d "$dest" ] || git clone --depth 1 "https://github.com/$repo" "$dest"
 #   done
 #
-# Bundles are third-party checkouts and are deliberately not vendored into this
+# Then `vim -es -c 'helptags ALL' -c q` for the plugin docs.
+#
+# Plugins are third-party checkouts and are deliberately not vendored into this
 # repo; this file is the record of which ones vimrc expects.
 
 # Async linting. Backs the g:ale_lint_on_enter / g:ale_lint_on_save /

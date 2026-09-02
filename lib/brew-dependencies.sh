@@ -48,6 +48,7 @@ pkg_present() {
 	token=${name##*/}
 	case $token in
 		git-delta) command -v delta >/dev/null 2>&1 ;;
+		ripgrep) command -v rg >/dev/null 2>&1 ;;
 		zsh-autosuggestions)
 			[ -f "$pfx/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] ;;
 		zsh-syntax-highlighting)

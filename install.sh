@@ -10,7 +10,7 @@
 #   ./install.sh --dry-run            print the plan, touch nothing
 #   ./install.sh --only vim           one group (see --help for the list)
 #   ./install.sh --skip-brew          leave Homebrew alone
-#   ./install.sh --skip-vim-plugins   do not fetch pathogen or the bundles
+#   ./install.sh --skip-vim-plugins   do not clone the vim plugins
 #
 # Re-running is safe: an already-correct target is reported and left alone. Any
 # target that exists and is not already correct is backed up under
@@ -49,8 +49,6 @@ MANIFEST="$DOTFILES/manifest.tsv"
 PLUGIN_LIST="$DOTFILES/vim/plugins.txt"
 BREWFILE="$DOTFILES/Brewfile"
 BREW_DEPENDENCIES="$DOTFILES/lib/brew-dependencies.sh"
-
-PATHOGEN_URL="https://raw.githubusercontent.com/tpope/vim-pathogen/master/autoload/pathogen.vim"
 
 BLOCK_START='# >>> dotfiles managed block >>>'
 BLOCK_END='# <<< dotfiles managed block <<<'
@@ -110,7 +108,7 @@ Usage: ./install.sh [--dry-run] [--only <group>] [--skip-brew] [--skip-vim-plugi
   --dry-run            print every action that would be taken; change nothing
   --only <group>       restrict to one group of manifest rows (below)
   --skip-brew          do not run `brew bundle`
-  --skip-vim-plugins   do not fetch pathogen or clone vim/plugins.txt bundles
+  --skip-vim-plugins   do not clone the vim/plugins.txt plugins
   -h, --help           this text
 
 Groups. shell..never are the section headers in manifest.tsv; dirs, brew and
@@ -126,7 +124,7 @@ vim-plugins are phases of this script with no manifest rows of their own:
   scripts      ~/bin helpers
   never        print the rows this repo deliberately does not install, and why
   brew         Homebrew bundle only
-  vim-plugins  pathogen + bundles only
+  vim-plugins  clone the vim plugins only
 
 Directory creation runs for every group except `brew` and `never`, which touch
 no target; --dry-run suppresses it like everything else.
@@ -743,8 +741,7 @@ phase_dirs() {
 	for d in \
 		"$HOME/bin" \
 		"$HOME/.config/git" \
-		"$HOME/.vim/autoload" \
-		"$HOME/.vim/bundle" \
+		"$HOME/.vim/pack/bundle/start" \
 		"$HOME/.vim/backup" \
 		"$HOME/.vim/swap" \
 		"$HOME/.vim/undo" \
@@ -866,32 +863,12 @@ phase_manifest() {
 
 phase_vim_plugins() {
 	heading "vim plugins"
-	local autoload="$HOME/.vim/autoload" bundle="$HOME/.vim/bundle"
-	local repo dest tmp
+	# Native vim packages: vim 8+ loads everything under pack/*/start/ itself
+	# (:help packages), so cloning into this directory is the whole install.
+	local bundle="$HOME/.vim/pack/bundle/start"
+	local repo dest
 
-	ensure_dir "$autoload" || return 0
 	ensure_dir "$bundle" || return 0
-
-	# pathogen is a single autoload file, not a bundle. vimrc runs
-	# execute pathogen#infect(), which errors on EVERY launch without it.
-	if [ -f "$autoload/pathogen.vim" ]; then
-		ok "$(display_path "$autoload/pathogen.vim")"
-	elif [ "$DRY_RUN" -eq 1 ]; then
-		plan "fetch pathogen.vim -> $(display_path "$autoload/pathogen.vim")"
-	elif ! command -v curl >/dev/null 2>&1; then
-		fail "curl not found; cannot fetch pathogen" \
-			"Fetch it by hand: curl -fLo ~/.vim/autoload/pathogen.vim --create-dirs $PATHOGEN_URL"
-	else
-		tmp="$(tmpfile)"
-		if curl -fsSL "$PATHOGEN_URL" -o "$tmp" && grep -q 'pathogen#infect' "$tmp"; then
-			cp "$tmp" "$autoload/pathogen.vim"
-			chmod 644 "$autoload/pathogen.vim"
-			changed "$(display_path "$autoload/pathogen.vim") fetched"
-		else
-			fail "could not download a usable pathogen.vim" \
-				"Check network access, then fetch by hand: curl -fLo ~/.vim/autoload/pathogen.vim --create-dirs $PATHOGEN_URL"
-		fi
-	fi
 
 	if [ ! -f "$PLUGIN_LIST" ]; then
 		fail "$(display_path "$PLUGIN_LIST") not found; no bundles installed"
@@ -1021,7 +998,7 @@ fi
 
 if [ "$SKIP_VIM_PLUGINS" -eq 1 ]; then
 	heading "vim plugins"
-	skipped "pathogen + bundles (--skip-vim-plugins)"
+	skipped "vim plugins (--skip-vim-plugins)"
 elif want_group vim-plugins; then
 	phase_vim_plugins
 fi

@@ -42,6 +42,20 @@ brew "fzf"
 # `z` does not exist (plain `cd` is unaffected).
 brew "zoxide"
 
+# Backs the FZF_DEFAULT_COMMAND / FZF_CTRL_T_COMMAND / FZF_ALT_C_COMMAND exports
+# in zshrc: gitignore-aware walking for Ctrl-T and Alt-C. Without it fzf falls
+# back to its built-in `find` walk, which crawls .git and node_modules.
+brew "fd"
+
+# Backs vimrc's grepprg (rg --vimgrep). Without it :grep falls back to plain
+# grep; the shell itself never calls it. Formula name is ripgrep; binary is rg.
+brew "ripgrep"
+
+# SQLite-backed shell history with per-command exit code, duration, and cwd;
+# zshrc runs `atuin init zsh`, which takes Ctrl-R over from fzf. Without it
+# Ctrl-R stays on fzf's history search and nothing else changes.
+brew "atuin"
+
 # Renders the two-line prompt from config/starship.toml, including the
 # repo-root-relative path. Without it you get zsh's default PS1.
 brew "starship"

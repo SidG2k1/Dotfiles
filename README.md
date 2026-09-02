@@ -1,7 +1,7 @@
 # Dotfiles
 
 Public, credential-free configuration for a macOS (Apple Silicon) development
-laptop: zsh with vi mode, vim via pathogen, Ghostty, starship, and the Claude
+laptop: zsh with vi mode, vim with native packages, Ghostty, starship, and the Claude
 Code / Codex agent setup. No identity, keys, tokens, hostnames, or absolute
 `/Users/...` paths are tracked here — those live in machine-local files this repo
 deliberately does not own (see [Machine-local layer](#machine-local-layer)).
@@ -103,7 +103,7 @@ to a missing package*.
 | --- | --- | --- |
 | `jq` | Claude Code `statusLine` command; every `merge-json` install | the status line silently drops the model name (the command guards on `jq` and still prints the directory) — no error anywhere; `merge-json` installs refuse to run |
 | `delta` (formula `git-delta`) | `gitconfig` `core.pager` + `interactive.diffFilter` | **every** `git diff`, `git show`, `git log -p`, `git add -p` errors out |
-| pathogen + `vim/plugins.txt` bundles | `vimrc`'s `pathogen#infect()`, which loads `~/.vim/bundle/*` | nothing loudly — the call is guarded on `~/.vim/autoload/pathogen.vim` being readable, so vim still starts. Instead ALE linting, the airline statusline, `;th`, `gc`, easymotion, `:Tabularize`, fugitive, gitgutter, and jsonnet support are all **silently inert**. Bundles are third-party checkouts and deliberately not vendored; `vim/plugins.txt` records the nine vimrc expects, with the fetch commands in its header |
+| `vim/plugins.txt` plugins | vim's native package loading of `~/.vim/pack/bundle/start/*` (`:help packages`) | nothing loudly — vim still starts. Instead ALE linting, the airline statusline, `;th`, `gc`, easymotion, `:Tabularize`, fugitive, gitgutter, and jsonnet support are all **silently inert**. Plugins are third-party checkouts and deliberately not vendored; `vim/plugins.txt` records the nine vimrc expects, with the clone commands in its header |
 | `eza`, `bat` | the `ls`/`la`/`ll`/`lt` and `cat` aliases; both fzf previews | the aliases fail. `eza` also needs the `~/.zshenv` guard: from v0.23 it reads stdin for paths when stdout is not a TTY and **hangs forever** with no path argument, which is why that guard cannot live in `.zshrc` (agent, CI, and `$(…)` shells never source it) |
 | Nerd Font | starship glyphs, git status symbols, eza icons | those positions render as tofu boxes |
 

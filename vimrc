@@ -1,7 +1,7 @@
-" vimrc - vim 8 with pathogen. NOT self-contained; needs the plugins below.
+" vimrc - vim 8 with native packages. NOT self-contained; needs the plugins
+" below, loaded from ~/.vim/pack/bundle/start/ by vim itself (:help packages).
 "
 " REQUIRED EXTERNAL PLUGINS (deliberately not vendored in this repo):
-"   pathogen itself -> ~/.vim/autoload/pathogen.vim  (tpope/vim-pathogen)
 "   dense-analysis/ale           backs the g:ale_* settings and SR
 "   vim-airline/vim-airline      backs the g:airline_* settings
 "   ron89/thesaurus_query.vim    backs ;th
@@ -14,19 +14,12 @@
 "
 " vim/plugins.txt is the authoritative list (with the reason for each and the
 " clone commands); install.sh fetches them. Nothing here hard-fails without
-" them: the pathogen call is guarded, because an unguarded
-" execute pathogen#infect() errors on EVERY vim launch on a machine that has no
-" pathogen, and the g:ale_* / g:airline_* variables are inert when the plugins
-" that read them are absent.
+" them - a missing package directory is simply not loaded, and the g:ale_* /
+" g:airline_* variables are inert when the plugins that read them are absent.
 "
 
-" First, and before pathogen: nocompatible is what enables the vim-only
-" behaviour and 'runtimepath' handling that pathogen#infect() manipulates.
 set nocompatible
 
-if filereadable(expand('~/.vim/autoload/pathogen.vim'))
-  execute pathogen#infect()
-endif
 filetype plugin indent on
 set cm=blowfish2
 
@@ -38,6 +31,12 @@ set shiftwidth=4 "proper shiftwidth
 set tabstop=4 " number of visual spaces per TAB
 set showmatch " highlight matching [{()}]
 set incsearch " search as characters are entered
+
+" :grep through ripgrep when present - gitignore-aware, quickfix-ready output.
+if executable('rg')
+  set grepprg=rg\ --vimgrep
+  set grepformat=%f:%l:%c:%m
+endif
 set hlsearch " highlight matches
 set hidden
 set ignorecase "required: smartcase is a no-op on its own, so this was never live

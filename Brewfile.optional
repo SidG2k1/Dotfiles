@@ -45,10 +45,6 @@ brew "gnupg"
 # xelatex, which tectonic does not provide.
 brew "tectonic"
 
-# Only useful if you intend to build an nvim config from scratch: this repo's editor
-# is vim with pathogen (see vim/plugins.txt), and nothing here configures nvim.
-brew "neovim"
-
 # Unlocks persistent sessions and pane layouts that survive a terminal restart.
 # Ghostty's window-save-state restores geometry, tabs, and working directories
 # but not running processes or scrollback; tmux covers that gap. No tracked
