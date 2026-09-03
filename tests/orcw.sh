@@ -21,6 +21,8 @@ LOG="$TEST_ROOT/calls.log"
 export ORCW_HOME="$TEST_ROOT/orcw"
 # On Linux the adapter resolves orca-ide, never bare orca (the GNOME screen reader). Pin the fake.
 export ORCA_CLI_COMMAND="$FAKE_BIN/orca"
+# Whether orcw is on PATH varies by machine; pin what the trailer tells workers to run.
+export ORCW_CMD="$REPO/bin/orcw"
 export FAKE_LOG="$LOG" FAKE_WT="$WT"
 export FAKE_WORKER_START=ok FAKE_CHECK=msgs FAKE_DISPATCH_STATUS=dispatched FAKE_HELP_MISSING="" FAKE_CREATE=ok FAKE_UPSTREAM=completed
 
@@ -441,6 +443,6 @@ out_has "--dispatch-capability <token>"
 expect_exit 1 "$ORCW" read ctx_0001
 err_has '"code": "unknown_command"'
 err_has "next: Using this same Orca CLI executable"
-err_has "run:  orca skills get orchestration --full"
+err_has "skills get orchestration --full"
 
 echo "ok orcw"

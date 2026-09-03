@@ -56,8 +56,10 @@ def home() -> Path:
 
 
 def orcw_cmd() -> str:
-    """How a worker should invoke orcw: bare name if on PATH, else this clone's launcher."""
+    """How a worker should invoke orcw: $ORCW_CMD, else bare name if on PATH, else this clone's launcher."""
     from shutil import which
+    if os.environ.get("ORCW_CMD"):
+        return os.environ["ORCW_CMD"]
     if which("orcw"):
         return "orcw"
     launcher = Path(__file__).resolve().parent.parent / "bin" / "orcw"
