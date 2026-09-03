@@ -4,6 +4,7 @@ This file is shared across every machine, so it states no machine's contents. Wh
 Audio transcription (local, on-device, mlx-whisper): runbook in `~/.agents/reference/transcription.md` (repo: `agents/reference/transcription.md`).
 When adding a personal skill under `~/.agents/skills/`, symlink that skill directory into both `~/.claude/skills/` and `~/.codex/skills/`, and verify all paths resolve to the same `SKILL.md` (recipes in `~/.agents/SKILLS.md`).
 When implementing or reviewing code changes, apply the `anti-slop` skill by default: smallest correct change that fits the codebase.
+For multi-agent work in Orca use the `orchestration-v2` skill (`orcw`); use the raw `orchestration` skill only for what `orcw --help` lists as not wrapped.
 
 ## Prose for Humans (PR descriptions, docs, comments, commit messages)
 

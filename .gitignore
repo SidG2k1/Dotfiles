@@ -46,6 +46,7 @@
 !/Brewfile.optional
 !/install.sh
 !/lib/brew-dependencies.sh
+!/lib/orcw.py
 
 # ---- CI ----
 !/.github/workflows/ci.yml
@@ -53,10 +54,12 @@
 # ---- tests ----
 !/tests/install-brew-skips.sh
 !/tests/install-agent-extras.sh
+!/tests/orcw.sh
 
 # ---- scripts (installed to ~/bin, must stay mode 755) ----
 !/bin/dotfiles-doctor
 !/bin/rebuild-alttab
+!/bin/orcw
 
 # ---- shell ----
 !/zshenv
@@ -86,6 +89,7 @@
 !/agents/skills/autopush/SKILL.md
 !/agents/skills/memdump/SKILL.md
 !/agents/skills/memload/SKILL.md
+!/agents/skills/orchestration-v2/SKILL.md
 !/agents/skills/pr_update/SKILL.md
 !/agents/skills/brainstorming/SKILL.md
 !/agents/skills/brainstorming/scripts/frame-template.html

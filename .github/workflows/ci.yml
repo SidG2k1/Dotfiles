@@ -64,6 +64,11 @@ jobs:
       - name: Installer links vendored skills and installs the gh-stack extension
         run: bash tests/install-agent-extras.sh
 
+      # orcw is Python behind a bash launcher; compile it and drive it against
+      # a fake orca that replays recorded JSON. No Orca app in CI.
+      - name: orcw compiles and passes its fixture test
+        run: python3 -m py_compile lib/orcw.py && bash tests/orcw.sh
+
       # bin/* is installed by symlink and run from PATH; a non-executable mode
       # in the index means a fresh clone produces a script nobody can run.
       - name: bin/* is executable in the index

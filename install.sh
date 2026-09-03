@@ -118,8 +118,10 @@ vim-plugins are phases of this script with no manifest rows of their own:
   vim          ~/.vimrc, ~/.vim/templates  (+ vim-plugins unless skipped)
   terminal     starship, Ghostty
   git          ~/.gitconfig include, global gitignore
-  agents       AGENTS.md, Claude Code settings, every skill in ~/.agents/skills
-               linked into ~/.claude and ~/.codex, the gh-stack gh extension
+  agents       AGENTS.md (symlinked into ~/.agents, ~/.claude, ~/.codex and
+               ~/.config/opencode), Claude Code settings, every skill in
+               ~/.agents/skills linked into ~/.claude and ~/.codex, the
+               gh-stack gh extension
   tools        gh, VS Code, yt-dlp, gnupg, docker
   scripts      ~/bin helpers
   never        print the rows this repo deliberately does not install, and why
@@ -338,8 +340,9 @@ fi
 # ------------------------------------------------------------------ strategies
 
 # The link value for a row. Some rows deliberately do NOT point at the repo:
-#   * ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md point at ~/.agents/AGENTS.md so
-#     all three agents read one file and the repo can move.
+#   * ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md and ~/.config/opencode/AGENTS.md
+#     point at ~/.agents/AGENTS.md so all four agents read one file and the
+#     repo can move.
 #   * each skills dir's README.md is a RELATIVE ../../.agents/SKILLS.md link,
 #     the same shape as the skill links phase_agent_extras writes.
 link_value_for() {
