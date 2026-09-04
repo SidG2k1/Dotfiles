@@ -15,8 +15,12 @@ description: >-
 
 ## Decide first
 
+- Before `orcw task` or `orcw handoff`, identify the worker agent. If the user
+  did not name one, ask: "Which agent should I use (for example, codex, claude,
+  or opencode)?" Wait for the answer, then pass it as `--agent <agent>`.
 - "hand off", "handover", "give to another agent/worktree", a model or effort
-  request: `orcw handoff --repo <r> --name <wt> --spec <file>`, then stop.
+  request: `orcw handoff --repo <r> --name <wt> --agent <agent> --spec <file>`,
+  then stop.
 - "supervise", "monitor", "wait for results", "coordinate", "DAG": the loop.
 - Never substitute Claude/Codex subagents when the user asked for Orca.
 
@@ -24,8 +28,8 @@ description: >-
 
     orcw doctor                       # once per Orca version
     orcw run "<objective>"
-    orcw task --spec a.md             # worker in the current worktree
-    orcw task --spec b.md --after <task_a>   # deferred; wait launches it
+    orcw task --agent <agent> --spec a.md   # worker in the current worktree
+    orcw task --agent <agent> --spec b.md --after <task_a>   # deferred; wait launches it
     orcw wait --auto                  # releases, acks, launches deferred; stops on a question
     orcw reply <msg> "<answer>"       # for each question, then wait --auto again
     orcw status; orcw cleanup         # cleanup is a dry run without --apply
