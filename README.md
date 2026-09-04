@@ -1,4 +1,4 @@
-# Dotfiles
+# dotfiles
 
 Public, credential-free configuration for a macOS (Apple Silicon) development
 laptop: zsh with vi mode, vim with native packages, Ghostty, starship, and the Claude
@@ -11,7 +11,7 @@ Everything degrades gracefully: a missing tool costs a feature, never `ls`,
 ## Quick start
 
 ```sh
-git clone https://github.com/SidG2k1/Dotfiles.git ~/dotfiles
+git clone https://github.com/SidG2k1/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ./install.sh                         # idempotent; --dry-run prints the plan
 bin/dotfiles-doctor                  # verifies every install landed + deps resolve

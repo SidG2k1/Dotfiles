@@ -9,7 +9,7 @@ cannot do it — it needs a password, a GUI toggle, or a decision.
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-git clone https://github.com/SidG2k1/Dotfiles.git ~/dotfiles
+git clone https://github.com/SidG2k1/dotfiles.git ~/dotfiles
 brew bundle --file=~/dotfiles/Brewfile.optional     # per-feature extras; read it first
 ```
 

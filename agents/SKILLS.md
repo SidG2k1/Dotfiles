@@ -10,7 +10,7 @@ so a skill is edited in one place and adopted by a tool by adding one link.
 
 The only difference is whether the real content sits in the public dotfiles repo.
 
-**Portable** — `github.com/SidG2k1/Dotfiles` is public, so this layer must name no internal host.
+**Portable** — `github.com/SidG2k1/dotfiles` is public, so this layer must name no internal host.
 
 ```
 ~/dotfiles/agents/skills/<name>/SKILL.md                                     # committed
